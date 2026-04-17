@@ -44,13 +44,12 @@ async def _generate_ai_cover(title: str, output_path: str | None = None) -> str:
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
-            f"{settings.openai_base_url.rstrip('/v1')}/v1/images/generations",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+            "https://api.x.ai/v1/images/generations",
+            headers={"Authorization": f"Bearer {settings.xai_api_key}"},
             json={
-                "model": "grok-imagine-image",
+                "model": settings.xai_image_model,
                 "prompt": prompt,
                 "n": 1,
-                "size": "1024x1024",  # 生成后会裁剪
             },
         )
         response.raise_for_status()
