@@ -34,25 +34,46 @@ async def _generate_ai_cover(title: str, output_path: str | None = None) -> str:
     """使用 AI 生成封面图。"""
     settings = get_settings()
 
-    # 构建 prompt：简洁、视觉化、适合新闻评论
+    # 从标题提取关键词，生成更相关的图片
+    # 例如："今天怎么看｜L2不是炫技，是先把规矩立住" -> "L2 autonomous driving car"
+    clean_title = title.replace("今天怎么看｜", "").replace("今天怎么看|", "")
+
+    # 构建 prompt：根据标题生成相关场景图片
     prompt = (
-        f"A minimalist, professional cover image for a Chinese news commentary article titled '{title}'. "
-        f"Style: clean, modern, abstract geometric shapes or subtle gradients. "
-        f"Colors: deep blue, gray, white. No text, no people, no complex scenes. "
-        f"Aspect ratio 2.35:1 (900x383px)."
+        f"Create a professional, visually striking cover image for a Chinese news article about: {clean_title}. "
+        f"Style: photorealistic or modern illustration, clean composition, cinematic lighting. "
+        f"Focus on the main subject matter mentioned in the title. "
+        f"Colors: vibrant but professional, suitable for news media. "
+        f"No text overlay, no watermarks. High quality, 16:9 aspect ratio."
     )
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(
-            "https://api.x.ai/v1/images/generations",
-            headers={"Authorization": f"Bearer {settings.xai_api_key}"},
-            json={
-                "model": settings.xai_image_model,
-                "prompt": prompt,
-                "n": 1,
-            },
-        )
-        response.raise_for_status()
+        # 优先尝试提供商代理，失败则直接调用 xAI API
+        try:
+            response = await client.post(
+                f"{settings.openai_base_url.rstrip('/v1')}/v1/images/generations",
+                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                json={
+                    "model": settings.xai_image_model,
+                    "prompt": prompt,
+                    "n": 1,
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
+        except Exception as e:
+            logger.warning("提供商图片生成失败，切换到 xAI 官方 API: %s", e)
+            response = await client.post(
+                "https://api.x.ai/v1/images/generations",
+                headers={"Authorization": f"Bearer {settings.xai_api_key}"},
+                json={
+                    "model": settings.xai_image_model,
+                    "prompt": prompt,
+                    "n": 1,
+                },
+                timeout=30.0,
+            )
+            response.raise_for_status()
         data = response.json()
 
         if not data.get("data") or not data["data"][0].get("url"):
@@ -87,15 +108,14 @@ def _crop_to_cover_ratio(img: Image.Image) -> Image.Image:
     current_ratio = img.width / img.height
 
     if current_ratio > target_ratio:
-        # 图片太宽，裁剪左右
+        # 图片太宽，裁剪左右（居中）
         new_width = int(img.height * target_ratio)
         left = (img.width - new_width) // 2
         img = img.crop((left, 0, left + new_width, img.height))
     else:
-        # 图片太高，裁剪上下
+        # 图片太高，从顶部裁剪（保留上部内容）
         new_height = int(img.width / target_ratio)
-        top = (img.height - new_height) // 2
-        img = img.crop((0, top, img.width, top + new_height))
+        img = img.crop((0, 0, img.width, new_height))
 
     # 缩放到目标尺寸
     img = img.resize((COVER_WIDTH, COVER_HEIGHT), Image.Resampling.LANCZOS)

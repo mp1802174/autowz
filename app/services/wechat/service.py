@@ -49,9 +49,35 @@ class WechatPublishOrchestrator:
         payload: WechatArticlePayload,
         cover_image_path: str | None,
     ) -> WechatPublishResult:
-        # 1. 上传封面
+        # 1. 上传封面（永久素材）
         image_data = await self.material_service.upload_image(cover_image_path)
         payload.thumb_media_id = image_data["media_id"]
+        logger.info("封面上传完成，准备插入正文图片，cover_image_path=%s", cover_image_path)
+
+        # 1.5. 上传图片用于正文插入（使用图文消息专用接口）
+        if cover_image_path:
+            logger.info("开始上传正文图片")
+            content_image = await self.material_service.upload_temp_image(cover_image_path)
+            content_image_url = content_image.get("url", "")
+            logger.info("正文图片上传完成，url=%s", content_image_url)
+
+            if content_image_url and not content_image_url.startswith("file://"):
+                # 在正文开头插入封面图（使用微信公众号标准格式）
+                # 图片宽高比 2.35:1 (900x383)
+                img_tag = (
+                    f'<section><section style="display: inline-block;">'
+                    f'<img data-ratio="0.4255555555555556" data-src="{content_image_url}" '
+                    f'data-type="jpeg" data-w="900">'
+                    f'</section></section>'
+                )
+                logger.info("准备插入图片标签，原内容长度=%d", len(payload.content))
+                payload.content = img_tag + payload.content
+                logger.info("图片标签已插入，新内容长度=%d，前200字符=%s",
+                           len(payload.content), payload.content[:200])
+            else:
+                logger.warning("图片 URL 无效或为 file:// 协议，跳过插入")
+        else:
+            logger.warning("未提供 cover_image_path，跳过正文图片插入")
 
         # 2. 创建草稿
         draft_media_id = await self.draft_service.create_draft(payload)
