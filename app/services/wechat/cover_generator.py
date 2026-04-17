@@ -1,8 +1,13 @@
+import asyncio
 import logging
 import tempfile
+from io import BytesIO
 from pathlib import Path
 
+import httpx
 from PIL import Image, ImageDraw, ImageFont
+
+from app.core.config import get_settings
 
 logger = logging.getLogger("autowz.wechat.cover")
 
@@ -11,8 +16,95 @@ COVER_WIDTH = 900
 COVER_HEIGHT = 383
 
 
+async def generate_cover_async(title: str, output_path: str | None = None) -> str:
+    """生成封面图（异步版本），优先使用 AI 生成，失败则回退到文字封面。"""
+    try:
+        return await _generate_ai_cover(title, output_path)
+    except Exception as exc:
+        logger.warning("AI 封面生成失败，回退到文字封面: %s", exc)
+        return _generate_text_cover(title, output_path)
+
+
 def generate_cover(title: str, output_path: str | None = None) -> str:
-    """生成默认封面图，返回文件路径。"""
+    """生成封面图（同步版本），仅生成文字封面。"""
+    return _generate_text_cover(title, output_path)
+
+
+async def _generate_ai_cover(title: str, output_path: str | None = None) -> str:
+    """使用 AI 生成封面图。"""
+    settings = get_settings()
+
+    # 构建 prompt：简洁、视觉化、适合新闻评论
+    prompt = (
+        f"A minimalist, professional cover image for a Chinese news commentary article titled '{title}'. "
+        f"Style: clean, modern, abstract geometric shapes or subtle gradients. "
+        f"Colors: deep blue, gray, white. No text, no people, no complex scenes. "
+        f"Aspect ratio 2.35:1 (900x383px)."
+    )
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            f"{settings.openai_base_url.rstrip('/v1')}/v1/images/generations",
+            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+            json={
+                "model": "grok-imagine-image",
+                "prompt": prompt,
+                "n": 1,
+                "size": "1024x1024",  # 生成后会裁剪
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        if not data.get("data") or not data["data"][0].get("url"):
+            raise ValueError("AI 返回的图片 URL 为空")
+
+        image_url = data["data"][0]["url"]
+
+        # 下载图片
+        img_response = await client.get(image_url)
+        img_response.raise_for_status()
+
+        # 保存并裁剪为 2.35:1
+        if output_path:
+            out = Path(output_path)
+        else:
+            tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False, prefix="autowz_cover_ai_")
+            out = Path(tmp.name)
+            tmp.close()
+
+        # 加载图片并裁剪
+        img = Image.open(BytesIO(img_response.content))
+        img = _crop_to_cover_ratio(img)
+        img.save(str(out), "JPEG", quality=90)
+
+        logger.info("AI 封面图已生成: %s", out)
+        return str(out)
+
+
+def _crop_to_cover_ratio(img: Image.Image) -> Image.Image:
+    """裁剪图片为 2.35:1 比例（900x383）。"""
+    target_ratio = COVER_WIDTH / COVER_HEIGHT
+    current_ratio = img.width / img.height
+
+    if current_ratio > target_ratio:
+        # 图片太宽，裁剪左右
+        new_width = int(img.height * target_ratio)
+        left = (img.width - new_width) // 2
+        img = img.crop((left, 0, left + new_width, img.height))
+    else:
+        # 图片太高，裁剪上下
+        new_height = int(img.width / target_ratio)
+        top = (img.height - new_height) // 2
+        img = img.crop((0, top, img.width, top + new_height))
+
+    # 缩放到目标尺寸
+    img = img.resize((COVER_WIDTH, COVER_HEIGHT), Image.Resampling.LANCZOS)
+    return img
+
+
+def _generate_text_cover(title: str, output_path: str | None = None) -> str:
+    """生成文字封面（兜底方案）。"""
     img = Image.new("RGB", (COVER_WIDTH, COVER_HEIGHT))
     draw = ImageDraw.Draw(img)
 

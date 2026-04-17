@@ -15,7 +15,7 @@ from app.services.collector.search import NewsCollector, NewsItem
 from app.services.guard.service import GuardService
 from app.services.humanizer.service import HumanizerService
 from app.services.selector.service import TopicSelectorService
-from app.services.wechat.cover_generator import generate_cover
+from app.services.wechat.cover_generator import generate_cover_async
 from app.services.wechat.service import WechatPublishOrchestrator
 from app.services.writer.service import WriterService
 
@@ -70,7 +70,7 @@ class ArticlePipeline:
             logger.warning("文章质量评分 %d < 80，跳过发布", preview.style_score)
             raise ValueError(f"文章质量评分不足 ({preview.style_score}/100)，请人工审核。")
 
-        cover_path = request.cover_image_path or generate_cover(preview.title)
+        cover_path = request.cover_image_path or await generate_cover_async(preview.title)
 
         payload = WechatArticlePayload(
             title=preview.title,
@@ -231,7 +231,7 @@ class ArticlePipeline:
             return {"title": draft["title"], "status": "low_quality", "article_id": article_id}
 
         # 发布
-        cover_path = generate_cover(humanized["title"])
+        cover_path = await generate_cover_async(humanized["title"])
         payload = WechatArticlePayload(
             title=humanized["title"],
             author=self.settings.content_author,
