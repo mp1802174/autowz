@@ -51,8 +51,8 @@ SYSTEM_PROMPT = """你是一位资深微信公众号编辑，专门把 AI 写的
 
 ## 目标字数
 
-- 短文：500-700 字
-- 长文：700-1000 字
+- 短文：400-500 字
+- 长文：500-700 字
 - 不要为了短而短，事实部分该详细就详细
 
 ## 输出
@@ -169,8 +169,8 @@ class HumanizerService:
     @staticmethod
     def _trim_to_limit(text: str, article_type: str) -> str:
         """如果中文字数超标，从末尾按段落裁剪（保留最后一段作为结尾）。"""
-        limits = {"short": 750, "long": 1100}
-        max_chars = limits.get(article_type, 750)
+        limits = {"short": 550, "long": 750}
+        max_chars = limits.get(article_type, 550)
 
         cn_count = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
         if cn_count <= max_chars:
