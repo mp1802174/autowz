@@ -7,3 +7,18 @@ __pycache__/
 *.egg-info/
 .claude/
 
+
+# Runtime artifacts
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.pid
+uvicorn.log
+*.bak
+backups/
+drafts/
+media/
+tmp_*
+temp_*
+.env.*

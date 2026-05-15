@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,25 @@ from app.db.models import Article, Topic, WechatPublishRecord
 # ---- Topic ----
 
 def save_topic(session: Session, **kwargs) -> Topic:
+    """纯 INSERT，不做去重。推荐在需要去重的场景使用 save_topic_upsert。"""
+    topic = Topic(**kwargs)
+    session.add(topic)
+    session.flush()
+    return topic
+
+
+def save_topic_upsert(session: Session, **kwargs) -> Topic:
+    """按 (title + batch_date) 去重的保存：已存在则返回已有记录，否则新建。"""
+    title = kwargs.get("title")
+    batch_date_val = kwargs.get("batch_date")
+    if title and batch_date_val:
+        existing = (
+            session.query(Topic)
+            .filter(Topic.title == title, Topic.batch_date == batch_date_val)
+            .first()
+        )
+        if existing:
+            return existing
     topic = Topic(**kwargs)
     session.add(topic)
     session.flush()
@@ -25,6 +44,17 @@ def get_selected_topics(session: Session, batch_date: date | None = None) -> lis
         session.query(Topic)
         .filter(Topic.batch_date == d, Topic.status == "selected")
         .order_by(Topic.hot_score.desc())
+        .all()
+    )
+
+
+def get_recent_selected_topics(session: Session, days: int = 3) -> list[Topic]:
+    """获取近 N 天已选话题（跨天去重）。"""
+    since = date.today() - timedelta(days=days)
+    return (
+        session.query(Topic)
+        .filter(Topic.batch_date >= since, Topic.status == "selected")
+        .order_by(Topic.batch_date.desc(), Topic.hot_score.desc())
         .all()
     )
 

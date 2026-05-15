@@ -24,12 +24,16 @@ class Settings(BaseSettings):
 
     tianapi_key: str = Field(default="", alias="TIANAPI_KEY")
 
+    image_api_key: str = Field(default="", alias="IMAGE_API_KEY")
+    image_api_url: str = Field(
+        default="https://token.sensenova.cn/v1/chat/completions",
+        alias="IMAGE_API_URL",
+    )
+    image_model: str = Field(default="sensenova-u1-fast", alias="IMAGE_MODEL")
+
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
-    openai_model: str = Field(default="gpt-4.1-mini", alias="OPENAI_MODEL")
-
-    xai_api_key: str = Field(default="", alias="XAI_API_KEY")
-    xai_image_model: str = Field(default="grok-imagine-image", alias="XAI_IMAGE_MODEL")
+    openai_model: str = Field(default="gpt-5.4", alias="OPENAI_MODEL")
 
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     mysql_dsn: str = Field(

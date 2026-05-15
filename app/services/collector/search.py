@@ -74,6 +74,11 @@ RSS_SOURCES = [
 ]
 
 
+def _normalize_title(title: str) -> str:
+    """去除标点空白，只保留中文字符和字母数字，用于去重比较。"""
+    return re.sub(r'[^\u4e00-\u9fff\w]', '', title).lower()
+
+
 class NewsCollector:
     """新闻采集器：天行API + RSS + 搜狗新闻搜索。"""
 
@@ -111,11 +116,11 @@ class NewsCollector:
             all_news.extend(items)
             logger.info("RSS [%s]: %d 条", name, len(items))
 
-        # 按标题去重
+        # 按规范化标题去重
         seen: set[str] = set()
         deduped: list[NewsItem] = []
         for item in all_news:
-            key = item.title[:15]
+            key = _normalize_title(item.title)
             if key not in seen:
                 seen.add(key)
                 deduped.append(item)

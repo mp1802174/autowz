@@ -27,13 +27,13 @@ async def _job_collect():
         logger.error("定时采集失败: %s", exc)
 
 
-async def _job_batch(batch_type: str):
+async def _job_batch(batch_type: str, count: int = 1, category: str = None):
     """定时任务：执行批次。"""
     from app.services.pipeline import ArticlePipeline
     logger.info("定时任务: 开始批次 %s", batch_type)
     pipeline = ArticlePipeline()
     try:
-        results = await pipeline.run_batch(batch_type)
+        results = await pipeline.run_batch(batch_type, count=count, category=category)
         logger.info("批次 %s 完成: %d 篇", batch_type, len(results))
     except Exception as exc:
         logger.error("批次 %s 失败: %s", batch_type, exc)
@@ -49,22 +49,22 @@ def init_scheduler() -> AsyncIOScheduler:
         id="collect_hot_topics", replace_existing=True,
     )
 
-    # 早间批次：07:05 生成短文1
+    # 早间批次：07:05 经济类 2 篇
     scheduler.add_job(
         _job_batch, CronTrigger(hour=7, minute=5),
-        args=["morning"], id="morning_batch", replace_existing=True,
+        args=["morning", 2, "finance"], id="morning_batch", replace_existing=True,
     )
 
-    # 午间批次：12:05 生成短文2
+    # 午间批次：12:05 娱乐类 2 篇
     scheduler.add_job(
         _job_batch, CronTrigger(hour=12, minute=5),
-        args=["noon"], id="noon_batch", replace_existing=True,
+        args=["noon", 2, "entertainment"], id="noon_batch", replace_existing=True,
     )
 
-    # 晚间批次：18:35 生成长文
+    # 晚间批次：18:35 国际形势 2 篇
     scheduler.add_job(
         _job_batch, CronTrigger(hour=18, minute=35),
-        args=["evening"], id="evening_batch", replace_existing=True,
+        args=["evening", 2, "international"], id="evening_batch", replace_existing=True,
     )
 
     scheduler.start()

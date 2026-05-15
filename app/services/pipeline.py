@@ -1,8 +1,9 @@
 import logging
+import re
 from datetime import date
 
 from app.core.config import get_settings
-from app.db.crud import get_selected_topics, save_article, save_topic, update_article_status
+from app.db.crud import get_recent_selected_topics, save_article, save_publish_record, save_topic, save_topic_upsert, update_article_status
 from app.db.engine import get_db_session
 from app.models.schemas import (
     ArticlePreviewRequest,
@@ -22,6 +23,30 @@ from app.services.writer.service import WriterService
 logger = logging.getLogger("autowz.pipeline")
 
 
+def _normalize_title(title: str) -> str:
+    """去除标点和空白，只保留中文字符和字母数字用于相似度比较。"""
+    return re.sub(r'[^\u4e00-\u9fff\w]', '', title).lower()
+
+
+def _is_similar_to_any(title: str, candidates: set[str], threshold: float = 0.50) -> bool:
+    """检查 title 是否与 candidates 中任意一条语义相似（子串 / 编辑距离）。"""
+    nt = _normalize_title(title)
+    if not nt:
+        return False
+    for c in candidates:
+        nc = _normalize_title(c)
+        if not nc:
+            continue
+        if nt == nc:
+            return True
+        if len(nt) >= 4 and len(nc) >= 4 and (nt in nc or nc in nt):
+            return True
+        from difflib import SequenceMatcher
+        if SequenceMatcher(None, nt, nc).ratio() >= threshold:
+            return True
+    return False
+
+
 class ArticlePipeline:
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -39,7 +64,6 @@ class ArticlePipeline:
 
         draft = await self.writer.generate(
             topic=request.topic,
-            article_type=request.article_type,
             stance=request.stance,
             context_text=context_text,
         )
@@ -59,7 +83,6 @@ class ArticlePipeline:
         preview = await self.generate_preview(
             ArticlePreviewRequest(
                 topic=request.topic,
-                article_type=request.article_type,
                 stance=request.stance,
             )
         )
@@ -70,7 +93,10 @@ class ArticlePipeline:
             logger.warning("文章质量评分 %d < 80，跳过发布", preview.style_score)
             raise ValueError(f"文章质量评分不足 ({preview.style_score}/100)，请人工审核。")
 
-        cover_path = request.cover_image_path or await generate_cover_async(preview.title)
+        cover_path = request.cover_image_path or await generate_cover_async(
+            preview.title,
+            content=preview.content_html,
+        )
 
         payload = WechatArticlePayload(
             title=preview.title,
@@ -87,12 +113,12 @@ class ArticlePipeline:
         return PublishArticleResponse(title=preview.title, **result.model_dump())
 
     async def collect_topics(self) -> list[dict]:
-        """采集今日新闻池并存入数据库。"""
+        """采集今日新闻池并存入数据库（标题+日期去重）。"""
         news_items = await self.news.fetch_news_pool()
         saved = []
         with get_db_session() as session:
             for item in news_items:
-                db_topic = save_topic(
+                db_topic = save_topic_upsert(
                     session,
                     title=item.title,
                     source=item.source,
@@ -104,10 +130,10 @@ class ArticlePipeline:
                 saved.append({
                     "id": db_topic.id, "title": db_topic.title, "source": db_topic.source,
                 })
-        logger.info("新闻池采集完成，存入 %d 条", len(saved))
+        logger.info("新闻池采集完成，存入 %d 条（去重后）", len(saved))
         return saved
 
-    async def run_batch(self, batch_type: str = "morning") -> list[dict]:
+    async def run_batch(self, batch_type: str = "morning", count: int = 1, category: str = None) -> list[dict]:
         """执行完整批次：获取新闻池 → LLM 选题 → 搜索详情 → 生成 → 改写 → 审核 → 发布。"""
         # 1. 获取今日新闻池
         news_items = await self.news.fetch_news_pool()
@@ -115,14 +141,14 @@ class ArticlePipeline:
             logger.warning("未获取到任何新闻，批次 %s 跳过", batch_type)
             return []
 
-        # 1.5 去重：过滤掉当天已选过的话题
+        # 1.5 去重：过滤掉近3天已选过的话题（语义相似度匹配）
         with get_db_session() as session:
-            already = get_selected_topics(session, date.today())
+            already = get_recent_selected_topics(session, days=3)
             used_titles = {t.title for t in already}
         if used_titles:
             before = len(news_items)
-            news_items = [n for n in news_items if n.title not in used_titles]
-            logger.info("去重过滤: %d → %d 条 (已选 %d 个话题)", before, len(news_items), len(used_titles))
+            news_items = [n for n in news_items if not _is_similar_to_any(n.title, used_titles)]
+            logger.info("去重过滤: %d → %d 条 (已选 %d 个话题，跨3天)", before, len(news_items), len(used_titles))
 
         if not news_items:
             logger.warning("去重后无可用新闻，批次 %s 跳过", batch_type)
@@ -131,10 +157,7 @@ class ArticlePipeline:
         logger.info("新闻池获取 %d 条，开始 LLM 选题", len(news_items))
 
         # 2. LLM 选题
-        if batch_type == "evening":
-            selection = await self.selector.select(news_items, short_count=0, long_count=1)
-        else:
-            selection = await self.selector.select(news_items, short_count=1, long_count=0)
+        selection = await self.selector.select(news_items, short_count=count, long_count=0, category=category)
 
         results = []
         all_selected = selection.get("short", []) + selection.get("long", [])
@@ -144,9 +167,8 @@ class ArticlePipeline:
             return []
 
         for news_item in all_selected:
-            article_type = "long" if news_item in selection.get("long", []) else "short"
             try:
-                result = await self._process_single_article(news_item, article_type)
+                result = await self._process_single_article(news_item)
                 results.append(result)
             except Exception as exc:
                 logger.error("文章处理失败 [%s]: %s", news_item.title, exc)
@@ -157,7 +179,7 @@ class ArticlePipeline:
         logger.info("批次 %s 完成: %d 篇文章", batch_type, len(results))
         return results
 
-    async def _process_single_article(self, news_item: NewsItem, article_type: str) -> dict:
+    async def _process_single_article(self, news_item: NewsItem) -> dict:
         """处理单篇文章的完整流程。"""
         topic_title = news_item.title
 
@@ -189,13 +211,13 @@ class ArticlePipeline:
 
         # 生成
         draft = await self.writer.generate(
-            topic_title, article_type, context_text=context_text,
+            topic_title, context_text=context_text,
         )
         with get_db_session() as session:
             db_article = save_article(
                 session,
                 topic_id=topic_id,
-                article_type=article_type,
+                article_type="comment",
                 title=draft["title"],
                 digest=draft["digest"],
                 content_md=draft["content_markdown"],
@@ -226,12 +248,32 @@ class ArticlePipeline:
                 update_article_status(session, article_id, "failed")
             return {"title": draft["title"], "status": "blocked_high_risk", "article_id": article_id}
 
+        # 改写重试：评分不达标则重新调用 humanizer（最多3次）
+        retry_count = 0
+        while humanized["style_score"] < 80 and retry_count < 3:
+            retry_count += 1
+            logger.warning(
+                "改写评分 %d < 80，第 %d 次重试: %s",
+                humanized["style_score"], retry_count, draft["title"],
+            )
+            humanized = await self.humanizer.rewrite(draft)
+            with get_db_session() as session:
+                update_article_status(
+                    session, article_id, "humanized",
+                    content_md=humanized["content_markdown"],
+                    content_html=humanized["content_html"],
+                    style_score=humanized["style_score"],
+                )
+
         if humanized["style_score"] < 80:
-            logger.warning("评分 %d < 80，跳过发布: %s", humanized["style_score"], draft["title"])
+            logger.warning("改写 %d 次后评分仍 %d < 80，跳过发布: %s", retry_count, humanized["style_score"], draft["title"])
             return {"title": draft["title"], "status": "low_quality", "article_id": article_id}
 
         # 发布
-        cover_path = await generate_cover_async(humanized["title"])
+        cover_path = await generate_cover_async(
+            humanized["title"],
+            content=humanized["content_html"],
+        )
         payload = WechatArticlePayload(
             title=humanized["title"],
             author=self.settings.content_author,
@@ -249,7 +291,22 @@ class ArticlePipeline:
             result = await self.wechat.publish_article(payload, cover_path)
             final_status = "published" if result.publish_status == "success" else result.publish_status
             with get_db_session() as session:
-                update_article_status(session, article_id, final_status)
+                update_article_status(
+                    session,
+                    article_id,
+                    final_status,
+                    content_html=payload.content,
+                )
+                save_publish_record(
+                    session,
+                    article_id=article_id,
+                    draft_media_id=result.draft_media_id,
+                    publish_id=result.publish_id or "",
+                    article_url=result.article_url or "",
+                    publish_status=result.publish_status,
+                    raw_response=result.model_dump(),
+                    cover_media_id=result.cover_media_id,
+                )
             return {
                 "title": humanized["title"],
                 "status": final_status,

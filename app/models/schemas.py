@@ -3,9 +3,6 @@ from typing import Literal
 from pydantic import BaseModel, Field, HttpUrl
 
 
-ArticleType = Literal["short", "long"]
-
-
 class TopicCandidate(BaseModel):
     title: str
     source: str
@@ -16,7 +13,6 @@ class TopicCandidate(BaseModel):
 
 class ArticlePreviewRequest(BaseModel):
     topic: str
-    article_type: ArticleType = "short"
     stance: str | None = None
 
 
@@ -31,7 +27,6 @@ class ArticlePreviewResponse(BaseModel):
 
 class PublishArticleRequest(BaseModel):
     topic: str
-    article_type: ArticleType = "short"
     source_url: HttpUrl | None = None
     cover_image_path: str | None = None
     stance: str | None = None
@@ -63,4 +58,5 @@ class WechatPublishResult(BaseModel):
     article_url: str | None = None
     publish_status: str
     fallback_mode: Literal["full_publish", "draft_only"]
+    cover_media_id: str = ""
 

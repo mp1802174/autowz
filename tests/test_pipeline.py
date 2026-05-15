@@ -28,7 +28,7 @@ async def test_preview_generates_article():
         "suggestion": "",
     })
 
-    request = ArticlePreviewRequest(topic="测试话题", article_type="short")
+    request = ArticlePreviewRequest(topic="测试话题")
     result = await pipeline.generate_preview(request)
 
     assert result.title == "今天怎么看｜测试话题"

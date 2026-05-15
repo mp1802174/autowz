@@ -35,6 +35,8 @@ class WechatDraftService:
                         "content": article_payload.content,
                         "content_source_url": article_payload.content_source_url,
                         "thumb_media_id": article_payload.thumb_media_id,
+                        # 显式要求草稿正文顶部显示封面图，避免微信默认隐藏封面导致后台看起来“无图”。
+                        "show_cover_pic": 1,
                         "need_open_comment": article_payload.need_open_comment,
                         "only_fans_can_comment": article_payload.only_fans_can_comment,
                     }

@@ -65,7 +65,6 @@ async def get_article(article_id: int):
         return {
             "id": article.id,
             "title": article.title,
-            "article_type": article.article_type,
             "digest": article.digest,
             "content_html": article.content_html,
             "style_score": float(article.style_score or 0),

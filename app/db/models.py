@@ -38,7 +38,7 @@ class Article(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     topic_id = Column(BigInteger, ForeignKey("topics.id"), nullable=True)
-    article_type = Column(String(10), nullable=False, comment="short/long")
+    article_type = Column(String(10), nullable=False, comment="统一评论类型（兼容保留字段）")
     title = Column(String(500), default="")
     digest = Column(Text, default="")
     content_md = Column(LONGTEXT, default="")

@@ -65,10 +65,11 @@ class WechatPublishOrchestrator:
                 # 在正文开头插入封面图（使用微信公众号标准格式）
                 # 图片宽高比 2.35:1 (900x383)
                 img_tag = (
-                    f'<section><section style="display: inline-block;">'
-                    f'<img data-ratio="0.4255555555555556" data-src="{content_image_url}" '
-                    f'data-type="jpeg" data-w="900">'
-                    f'</section></section>'
+                    f'<section style="margin: 0 0 16px 0; text-align: center;">'
+                    f'<img src="{content_image_url}" data-src="{content_image_url}" '
+                    f'data-ratio="0.4255555555555556" data-type="jpeg" data-w="900" '
+                    f'style="max-width: 100%; width: 100%; height: auto; display: block;" />'
+                    f'</section>'
                 )
                 logger.info("准备插入图片标签，原内容长度=%d", len(payload.content))
                 payload.content = img_tag + payload.content
@@ -88,6 +89,7 @@ class WechatPublishOrchestrator:
                 draft_media_id=draft_media_id,
                 publish_status="draft_created",
                 fallback_mode="draft_only",
+                cover_media_id=payload.thumb_media_id,
             )
 
         # 3. 提交发布
@@ -104,6 +106,7 @@ class WechatPublishOrchestrator:
                 publish_id=publish_id,
                 publish_status="publish_failed_draft_kept",
                 fallback_mode="draft_only",
+                cover_media_id=payload.thumb_media_id,
             )
 
         return WechatPublishResult(
@@ -112,4 +115,5 @@ class WechatPublishOrchestrator:
             article_url=result.get("article_url"),
             publish_status=status_str,
             fallback_mode="full_publish",
+            cover_media_id=payload.thumb_media_id,
         )
