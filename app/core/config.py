@@ -30,6 +30,15 @@ class Settings(BaseSettings):
         alias="IMAGE_API_URL",
     )
     image_model: str = Field(default="sensenova-u1-fast", alias="IMAGE_MODEL")
+    image_fallback_api_key: str = Field(default="", alias="IMAGE_FALLBACK_API_KEY")
+    image_fallback_api_url: str = Field(
+        default="https://jiuuij.de5.net/v1/images/generations",
+        alias="IMAGE_FALLBACK_API_URL",
+    )
+    image_fallback_models: str = Field(
+        default="gpt-image-2,grok-imagine-image-lite",
+        alias="IMAGE_FALLBACK_MODELS",
+    )
 
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")

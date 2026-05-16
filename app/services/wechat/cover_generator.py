@@ -50,13 +50,16 @@ async def _generate_ai_cover(
         f"Create a professional, visually striking cover image for a Chinese news article about: {clean_title}. "
         f"Style: photorealistic or modern illustration, clean composition, cinematic lighting. "
         f"Focus on the main subject matter mentioned in the title. "
+        f"The image must include concrete visual objects directly related to the key words in the title; "
+        f"for example, if the title mentions investment gold, include investment gold bars, and if it mentions kites, include kites. "
         f"Colors: vibrant but professional, suitable for news media. "
-        f"No text overlay, no watermarks. High quality, 16:9 aspect ratio."
+        f"Absolutely no text, letters, numbers, logos, captions, labels, or watermarks anywhere in the image. "
+        f"High quality, 16:9 aspect ratio."
     )
 
     timeout = httpx.Timeout(180.0, connect=30.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
-        image_bytes = await _generate_via_images_generation(client, settings, prompt)
+        image_bytes = await _generate_via_chat_completion(client, settings, prompt)
 
         out = _prepare_output_path(output_path, suffix=".jpg", prefix="autowz_cover_ai_")
         img = Image.open(BytesIO(image_bytes))
@@ -80,78 +83,111 @@ async def _generate_via_chat_completion(
     The parser below accepts all of those shapes so the project is not tied to
     a single vendor-specific response format.
     """
-    if not settings.image_api_key:
-        raise ValueError("IMAGE_API_KEY 未配置")
+    providers = _build_image_providers(settings)
+    if not providers:
+        raise ValueError("图片生成 API Key 未配置")
+
+    errors: list[str] = []
+    for provider in providers:
+        try:
+            logger.info(
+                "Generating cover image via %s (%s)",
+                provider["model"],
+                _redact_url(provider["api_url"]),
+            )
+            return await _generate_with_provider(client, provider, prompt)
+        except Exception as exc:
+            error = f"{provider['model']}: {exc}"
+            errors.append(error)
+            logger.warning("Image provider failed, trying fallback: %s", error)
+
+    raise ValueError("所有图片生成模型均失败: " + " | ".join(errors))
 
 
+def _build_image_providers(settings: Any) -> list[dict[str, str]]:
+    """Return image providers in GPT -> Grok -> SenseNova order."""
+    providers: list[dict[str, str]] = []
+
+    fallback_key = getattr(settings, "image_fallback_api_key", "")
+    fallback_url = getattr(settings, "image_fallback_api_url", "")
+    fallback_models = [
+        model.strip()
+        for model in getattr(settings, "image_fallback_models", "").split(",")
+        if model.strip()
+    ]
+    if fallback_key and fallback_url:
+        for model in fallback_models:
+            providers.append({"api_key": fallback_key, "api_url": fallback_url, "model": model})
+
+    if settings.image_api_key:
+        providers.append(
+            {
+                "api_key": settings.image_api_key,
+                "api_url": settings.image_api_url,
+                "model": settings.image_model,
+            }
+        )
+
+    return providers
+
+
+def _redact_url(url: str) -> str:
+    return url.split("?", 1)[0]
+
+
+async def _generate_with_provider(
+    client: httpx.AsyncClient,
+    provider: dict[str, str],
+    prompt: str,
+) -> bytes:
+    api_url = provider["api_url"].rstrip("/")
+    model = provider["model"]
     headers = {
-        "Authorization": f"Bearer {settings.image_api_key}",
+        "Authorization": f"Bearer {provider['api_key']}",
         "Content-Type": "application/json",
     }
-    chat_payload = {
-        "model": settings.image_model,
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "You are an image generation model. Generate exactly one "
-                    "news-media cover image. Return the generated image as a URL, "
-                    "base64 data, data URI, or JSON containing one of those fields. "
-                    "Do not return ordinary prose."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "stream": False,
-    }
+
+    image_api_url = api_url
+    if image_api_url.endswith("/chat/completions"):
+        image_api_url = image_api_url.removesuffix("/chat/completions")
+    if not image_api_url.endswith("/images/generations"):
+        image_api_url = f"{image_api_url}/images/generations"
 
     response = await client.post(
-        settings.image_api_url,
+        image_api_url,
         headers=headers,
-        json=chat_payload,
+        json={"model": model, "prompt": prompt, "n": 1},
         timeout=120.0,
     )
 
-    # SenseNova exposes the U1 image model through /images/generations even when
-    # the account's base OpenAI-compatible endpoint is /chat/completions. Retry
-    # that sibling endpoint automatically so IMAGE_API_URL can keep the user-
-    # provided value while actual image creation still succeeds.
-    if (
-        response.status_code == 404
-        and settings.image_api_url.rstrip("/").endswith("/chat/completions")
-    ):
-        body = response.text.lower()
-        if "model is not found" in body or "not_found" in body:
-            image_api_url = settings.image_api_url.rstrip("/").removesuffix("/chat/completions")
-            image_api_url = f"{image_api_url}/images/generations"
-            logger.warning(
-                "SenseNova chat endpoint did not expose image model %s; retrying %s",
-                settings.image_model,
-                image_api_url,
-            )
-            response = await client.post(
-                image_api_url,
-                headers=headers,
-                json={"model": settings.image_model, "prompt": prompt, "n": 1},
-                timeout=120.0,
-            )
+    # Keep compatibility with gateways that only expose image models through chat.
+    if response.status_code == 404 and api_url.endswith("/chat/completions"):
+        chat_payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an image generation model. Generate exactly one "
+                        "news-media cover image. Return the generated image as a URL, "
+                        "base64 data, data URI, or JSON containing one of those fields. "
+                        "Do not return ordinary prose."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "stream": False,
+        }
+        response = await client.post(api_url, headers=headers, json=chat_payload, timeout=120.0)
 
     _raise_for_status_with_body(response)
     data = response.json()
-
     try:
         return await _image_bytes_from_generation_response(client, data)
     except ValueError as generation_exc:
         try:
             return await _image_bytes_from_chat_response(client, data)
         except ValueError as chat_exc:
-            if settings.image_api_url.rstrip("/").endswith("/chat/completions"):
-                logger.warning(
-                    "SenseNova chat response did not contain image data (%s; %s); retrying images/generations",
-                    generation_exc,
-                    chat_exc,
-                )
-                return await _generate_via_images_generation(client, settings, prompt)
             raise ValueError(
                 f"AI 返回中未解析到图片数据: generation={generation_exc}; chat={chat_exc}"
             ) from chat_exc
