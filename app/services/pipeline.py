@@ -3,7 +3,7 @@ import re
 from datetime import date
 
 from app.core.config import get_settings
-from app.db.crud import get_recent_selected_topics, save_article, save_publish_record, save_topic, save_topic_upsert, update_article_status
+from app.db.crud import get_random_published_articles, get_recent_selected_topics, save_article, save_publish_record, save_topic, save_topic_upsert, update_article_status
 from app.db.engine import get_db_session
 from app.models.schemas import (
     ArticlePreviewRequest,
@@ -17,6 +17,7 @@ from app.services.guard.service import GuardService
 from app.services.humanizer.service import HumanizerService
 from app.services.selector.service import TopicSelectorService
 from app.services.wechat.cover_generator import generate_cover_async
+from app.services.wechat.reading_guide import build_reading_guide_html
 from app.services.wechat.service import WechatPublishOrchestrator
 from app.services.writer.service import WriterService
 
@@ -268,6 +269,13 @@ class ArticlePipeline:
         if humanized["style_score"] < 80:
             logger.warning("改写 %d 次后评分仍 %d < 80，跳过发布: %s", retry_count, humanized["style_score"], draft["title"])
             return {"title": draft["title"], "status": "low_quality", "article_id": article_id}
+
+        # 底部导读区块：随机取3篇已发表文章追加到正文末尾
+        with get_db_session() as session:
+            guide_articles = get_random_published_articles(session, count=3, exclude_article_id=article_id)
+        guide_html = build_reading_guide_html(guide_articles)
+        if guide_html:
+            humanized["content_html"] = humanized["content_html"] + guide_html
 
         # 发布
         cover_path = await generate_cover_async(

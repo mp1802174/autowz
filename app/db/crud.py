@@ -104,3 +104,26 @@ def get_pending_publish_records(session: Session) -> list[WechatPublishRecord]:
         .filter(WechatPublishRecord.publish_status.in_(["pending", "submitted"]))
         .all()
     )
+
+
+def get_random_published_articles(
+    session: Session, count: int = 3, exclude_article_id: int | None = None
+) -> list[dict]:
+    """随机获取已发表文章用于导读区块，返回 title/article_url/content_html 字段。"""
+    from sqlalchemy import func as sa_func
+    query = (
+        session.query(Article.id, Article.title, Article.content_html, WechatPublishRecord.article_url)
+        .join(WechatPublishRecord, WechatPublishRecord.article_id == Article.id)
+        .filter(
+            WechatPublishRecord.publish_status == "success",
+            WechatPublishRecord.article_url != "",
+            WechatPublishRecord.article_url.isnot(None),
+        )
+    )
+    if exclude_article_id is not None:
+        query = query.filter(Article.id != exclude_article_id)
+    rows = query.order_by(sa_func.random()).limit(count).all()
+    return [
+        {"id": r.id, "title": r.title, "content_html": r.content_html, "article_url": r.article_url}
+        for r in rows
+    ]
