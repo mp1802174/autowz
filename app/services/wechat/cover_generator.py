@@ -105,28 +105,48 @@ async def _generate_via_chat_completion(
 
 
 def _build_image_providers(settings: Any) -> list[dict[str, str]]:
-    """Return image providers in GPT -> Grok -> SenseNova order."""
-    providers: list[dict[str, str]] = []
+    """Return image providers in priority order: API -> FALLBACK -> FALLBACK2.
 
-    fallback_key = getattr(settings, "image_fallback_api_key", "")
-    fallback_url = getattr(settings, "image_fallback_api_url", "")
-    fallback_models = [
-        model.strip()
-        for model in getattr(settings, "image_fallback_models", "").split(",")
-        if model.strip()
+    Each provider tier accepts:
+      *_API_KEY / *_API_URL  - credentials and endpoint
+      *_MODEL or *_MODELS    - one or more model names (comma-separated)
+      *_PROXY                - optional SOCKS5/HTTP proxy URL applied only to
+                               this provider's HTTP client; never leaks to
+                               other network calls in the process.
+    """
+    tiers = [
+        {
+            "key": getattr(settings, "image_api_key", ""),
+            "url": getattr(settings, "image_api_url", ""),
+            "models": getattr(settings, "image_model", ""),
+            "proxy": getattr(settings, "image_api_proxy", "") or "",
+        },
+        {
+            "key": getattr(settings, "image_fallback_api_key", ""),
+            "url": getattr(settings, "image_fallback_api_url", ""),
+            "models": getattr(settings, "image_fallback_models", ""),
+            "proxy": getattr(settings, "image_fallback_proxy", "") or "",
+        },
+        {
+            "key": getattr(settings, "image_fallback2_api_key", ""),
+            "url": getattr(settings, "image_fallback2_api_url", ""),
+            "models": getattr(settings, "image_fallback2_models", ""),
+            "proxy": getattr(settings, "image_fallback2_proxy", "") or "",
+        },
     ]
-    if fallback_key and fallback_url:
-        for model in fallback_models:
-            providers.append({"api_key": fallback_key, "api_url": fallback_url, "model": model})
 
-    if settings.image_api_key:
-        providers.append(
-            {
-                "api_key": settings.image_api_key,
-                "api_url": settings.image_api_url,
-                "model": settings.image_model,
-            }
-        )
+    providers: list[dict[str, str]] = []
+    for tier in tiers:
+        if not tier["key"] or not tier["url"]:
+            continue
+        models = [m.strip() for m in str(tier["models"]).split(",") if m.strip()]
+        for model in models:
+            providers.append({
+                "api_key": tier["key"],
+                "api_url": tier["url"],
+                "model": model,
+                "proxy": tier["proxy"],
+            })
 
     return providers
 
@@ -136,6 +156,22 @@ def _redact_url(url: str) -> str:
 
 
 async def _generate_with_provider(
+    client: httpx.AsyncClient,
+    provider: dict[str, str],
+    prompt: str,
+) -> bytes:
+    """Call one provider. If provider declares a proxy, use a temporary client
+    with that proxy applied only to this call (and the subsequent image-URL
+    download); otherwise reuse the caller's proxy-less client."""
+    proxy = provider.get("proxy") or ""
+    if proxy:
+        timeout = httpx.Timeout(180.0, connect=30.0)
+        async with httpx.AsyncClient(proxy=proxy, timeout=timeout) as proxied:
+            return await _do_call_provider(proxied, provider, prompt)
+    return await _do_call_provider(client, provider, prompt)
+
+
+async def _do_call_provider(
     client: httpx.AsyncClient,
     provider: dict[str, str],
     prompt: str,

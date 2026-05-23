@@ -41,6 +41,8 @@ class WechatPublishOrchestrator:
                     draft_media_id="error",
                     publish_status="fallback_error",
                     fallback_mode="draft_only",
+                    error_code=exc.errcode,
+                    error_message=str(exc),
                 )
             raise
 
@@ -92,8 +94,26 @@ class WechatPublishOrchestrator:
                 cover_media_id=payload.thumb_media_id,
             )
 
-        # 3. 提交发布
-        publish_id = await self.publish_service.submit_publish(draft_media_id)
+        # 3. 提交发布（独立捕获：草稿已建好的话，submit 失败也要保留 draft_media_id）
+        try:
+            publish_id = await self.publish_service.submit_publish(draft_media_id)
+        except WechatAPIError as exc:
+            if exc.errcode in TOKEN_EXPIRED_CODES:
+                raise  # 让外层重试逻辑接管
+            if self.settings.wechat_fallback_to_draft:
+                logger.error(
+                    "自动发布提交失败，但草稿已建好，保留草稿 media_id=%s 错误=%s",
+                    draft_media_id, exc,
+                )
+                return WechatPublishResult(
+                    draft_media_id=draft_media_id,
+                    publish_status="submit_failed_draft_kept",
+                    fallback_mode="draft_only",
+                    cover_media_id=payload.thumb_media_id,
+                    error_code=exc.errcode,
+                    error_message=str(exc),
+                )
+            raise
 
         # 4. 轮询状态
         result = await self.publish_service.poll_until_complete(publish_id)

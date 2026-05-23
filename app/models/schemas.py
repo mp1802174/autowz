@@ -59,4 +59,6 @@ class WechatPublishResult(BaseModel):
     publish_status: str
     fallback_mode: Literal["full_publish", "draft_only"]
     cover_media_id: str = ""
+    error_code: int | None = None
+    error_message: str | None = None
 

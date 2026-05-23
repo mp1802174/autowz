@@ -39,6 +39,20 @@ async def _job_batch(batch_type: str, count: int = 1, category: str = None):
         logger.error("批次 %s 失败: %s", batch_type, exc)
 
 
+async def _job_sync_published():
+    """定时任务：同步公众号「已发布」列表到本地，供导读区块使用。"""
+    from app.services.wechat.publish_sync import sync_published_articles
+    logger.info("定时任务: 同步公众号已发布文章")
+    try:
+        result = await sync_published_articles()
+        if result.get("auth_expired"):
+            logger.error("同步失败 - 登录凭据已过期，请到 newwz 重新扫码: %s", result.get("error"))
+        else:
+            logger.info("同步完成: %s", result)
+    except Exception as exc:
+        logger.error("同步任务异常: %s", exc)
+
+
 def init_scheduler() -> AsyncIOScheduler:
     """初始化并启动定时调度器。"""
     scheduler = get_scheduler()
@@ -65,6 +79,12 @@ def init_scheduler() -> AsyncIOScheduler:
     scheduler.add_job(
         _job_batch, CronTrigger(hour=18, minute=35),
         args=["evening", 2, "international"], id="evening_batch", replace_existing=True,
+    )
+
+    # 公众号已发布文章同步：每日 03:17（避开整点降低风控，凌晨流量低）
+    scheduler.add_job(
+        _job_sync_published, CronTrigger(hour=3, minute=17),
+        id="sync_published_articles", replace_existing=True,
     )
 
     scheduler.start()
