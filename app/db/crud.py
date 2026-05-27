@@ -118,6 +118,7 @@ def get_random_published_articles(
             WechatPublishRecord.publish_status == "success",
             WechatPublishRecord.article_url != "",
             WechatPublishRecord.article_url.isnot(None),
+            Article.content_html.like("%<img%"),
         )
     )
     if exclude_article_id is not None:

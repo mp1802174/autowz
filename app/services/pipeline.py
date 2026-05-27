@@ -58,6 +58,14 @@ class ArticlePipeline:
         self.news = NewsCollector()
         self.selector = TopicSelectorService()
 
+    def _build_reading_guide_html(self, exclude_article_id: int | None = None) -> str:
+        """构造底部「精彩文章导读」HTML（随机取3篇已发表文章）。"""
+        with get_db_session() as session:
+            guide_articles = get_random_published_articles(
+                session, count=3, exclude_article_id=exclude_article_id
+            )
+        return build_reading_guide_html(guide_articles)
+
     async def generate_preview(self, request: ArticlePreviewRequest) -> ArticlePreviewResponse:
         """预览：对指定话题搜索素材并生成文章。"""
         context = await self.news.fetch_topic_detail(request.topic)
@@ -94,16 +102,22 @@ class ArticlePipeline:
             logger.warning("文章质量评分 %d < 80，跳过发布", preview.style_score)
             raise ValueError(f"文章质量评分不足 ({preview.style_score}/100)，请人工审核。")
 
+        # 底部导读区块：随机取3篇已发表文章追加到正文末尾
+        content_html = preview.content_html
+        guide_html = self._build_reading_guide_html()
+        if guide_html:
+            content_html = content_html + guide_html
+
         cover_path = request.cover_image_path or await generate_cover_async(
             preview.title,
-            content=preview.content_html,
+            content=content_html,
         )
 
         payload = WechatArticlePayload(
             title=preview.title,
             author=self.settings.content_author,
             digest=preview.digest,
-            content=preview.content_html,
+            content=content_html,
             content_source_url=str(request.source_url or ""),
             thumb_media_id="TO_BE_FILLED",
             need_open_comment=self.settings.default_comment_open,
@@ -271,9 +285,7 @@ class ArticlePipeline:
             return {"title": draft["title"], "status": "low_quality", "article_id": article_id}
 
         # 底部导读区块：随机取3篇已发表文章追加到正文末尾
-        with get_db_session() as session:
-            guide_articles = get_random_published_articles(session, count=3, exclude_article_id=article_id)
-        guide_html = build_reading_guide_html(guide_articles)
+        guide_html = self._build_reading_guide_html(exclude_article_id=article_id)
         if guide_html:
             humanized["content_html"] = humanized["content_html"] + guide_html
 
