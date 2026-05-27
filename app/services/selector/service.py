@@ -1,6 +1,7 @@
 import logging
 
 from app.services.collector.search import NewsItem
+from app.services.guard.blocklist import is_topic_risky
 from app.services.llm.client import LLMClient, get_llm_client
 
 logger = logging.getLogger("autowz.selector")
@@ -119,6 +120,24 @@ class TopicSelectorService:
     ) -> dict[str, list[NewsItem]]:
         """从新闻列表中选出适合评论的优先话题。"""
         if not news_items:
+            return {"short": [], "long": []}
+
+        # 前置硬拦截：剔除涉政体/涉港澳台/涉军/涉民族/涉群体事件/涉中美博弈
+        # 等高/中风险题材，自动管线一律不生成
+        before = len(news_items)
+        filtered: list[NewsItem] = []
+        for n in news_items:
+            risky, level, hit = is_topic_risky(f"{n.title} {n.description or ''}")
+            if risky:
+                logger.info("选题硬拦截 [%s/%s]: %s", level, hit, n.title)
+                continue
+            filtered.append(n)
+        news_items = filtered
+        if before != len(news_items):
+            logger.info("blocklist 过滤: %d → %d", before, len(news_items))
+
+        if not news_items:
+            logger.warning("blocklist 过滤后无可用新闻")
             return {"short": [], "long": []}
 
         prompt = CATEGORY_PROMPTS.get(category, SYSTEM_PROMPT)

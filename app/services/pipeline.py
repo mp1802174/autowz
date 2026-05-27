@@ -13,6 +13,7 @@ from app.models.schemas import (
     WechatArticlePayload,
 )
 from app.services.collector.search import NewsCollector, NewsItem
+from app.services.guard.blocklist import is_topic_risky
 from app.services.guard.service import GuardService
 from app.services.humanizer.service import HumanizerService
 from app.services.selector.service import TopicSelectorService
@@ -89,6 +90,13 @@ class ArticlePipeline:
         )
 
     async def publish(self, request: PublishArticleRequest) -> PublishArticleResponse:
+        # 早期硬拦截：手动话题先过 blocklist，避免浪费 LLM 调用
+        # 高/中风险均阻止生成，避免公众号侧限流
+        risky, level, hit = is_topic_risky(request.topic or "")
+        if risky:
+            logger.warning("publish 拒绝 %s 风险话题 [%s]: %s", level, hit, request.topic)
+            raise ValueError(f"话题命中{level}风险词 [{hit}]，已阻止生成与发布。")
+
         preview = await self.generate_preview(
             ArticlePreviewRequest(
                 topic=request.topic,

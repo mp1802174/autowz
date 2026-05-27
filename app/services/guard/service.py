@@ -1,5 +1,6 @@
 import logging
 
+from app.services.guard.blocklist import match_high_risk, match_medium_risk
 from app.services.llm.client import LLMClient, get_llm_client
 
 logger = logging.getLogger("autowz.guard")
@@ -23,15 +24,7 @@ SYSTEM_PROMPT = """你是一位内容风控审核专家。请对以下文章进�
 
 
 class GuardService:
-    # 第一层：关键词快速拦截
-    HIGH_RISK_KEYWORDS = (
-        "内幕", "造谣", "未经证实", "颠覆", "推翻", "暴动",
-        "泄密", "国家机密", "反动", "分裂",
-    )
-    MEDIUM_RISK_KEYWORDS = (
-        "必须封杀", "全民声讨", "人肉搜索", "网暴",
-        "死刑", "处决", "血债",
-    )
+    """风控审核：先用集中词库（blocklist.py）快速拦截，再用 LLM 深度评估。"""
 
     def __init__(self, llm_client: LLMClient | None = None) -> None:
         self.llm = llm_client or get_llm_client()
@@ -39,24 +32,24 @@ class GuardService:
     async def review(self, article: dict) -> dict:
         text = article.get("content_markdown", "") + " " + article.get("title", "")
 
-        # Layer 1: 关键词快速检查
-        for term in self.HIGH_RISK_KEYWORDS:
-            if term in text:
-                logger.warning("关键词拦截 [high]: 命中 '%s'", term)
-                return {
-                    "risk_level": "high",
-                    "risk_items": [f"命中高风险关键词: {term}"],
-                    "suggestion": f"请删除或替换包含 [{term}] 的内容",
-                }
+        # Layer 1: 关键词快速检查（命中即拦截，不再走 LLM）
+        hit_high = match_high_risk(text)
+        if hit_high:
+            logger.warning("关键词拦截 [high]: 命中 '%s'", hit_high)
+            return {
+                "risk_level": "high",
+                "risk_items": [f"命中高风险关键词: {hit_high}"],
+                "suggestion": f"请删除或替换包含 [{hit_high}] 的内容",
+            }
 
-        for term in self.MEDIUM_RISK_KEYWORDS:
-            if term in text:
-                logger.warning("关键词拦截 [medium]: 命中 '%s'", term)
-                return {
-                    "risk_level": "medium",
-                    "risk_items": [f"命中中风险关键词: {term}"],
-                    "suggestion": f"建议审查包含 [{term}] 的上下文",
-                }
+        hit_medium = match_medium_risk(text)
+        if hit_medium:
+            logger.warning("关键词拦截 [medium]: 命中 '%s'", hit_medium)
+            return {
+                "risk_level": "medium",
+                "risk_items": [f"命中中风险关键词: {hit_medium}"],
+                "suggestion": f"建议审查包含 [{hit_medium}] 的上下文",
+            }
 
         # Layer 2: LLM 深度审核
         try:
