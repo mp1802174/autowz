@@ -1,0 +1,26 @@
+[
+  {
+    "name": "openai-compatible",
+    "api_url": "https://api.openai.com/v1/images/generations",
+    "api_key": "your_openai_compatible_image_api_key",
+    "models": ["gpt-image-1"],
+    "proxy": "",
+    "enabled": true
+  },
+  {
+    "name": "sensenova",
+    "api_url": "https://token.sensenova.cn/v1/images/generations",
+    "api_key": "your_sensenova_image_api_key",
+    "models": ["sensenova-u1-fast"],
+    "proxy": "",
+    "enabled": true
+  },
+  {
+    "name": "aggregator-example",
+    "api_url": "https://example-aggregator.com/v1/images/generations",
+    "api_key": "your_aggregator_api_key",
+    "models": ["gpt-image-2", "grok-imagine-image-lite"],
+    "proxy": "",
+    "enabled": false
+  }
+]
