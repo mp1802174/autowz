@@ -117,6 +117,13 @@ DOWNRANK_KEYWORDS = [
     "搞笑", "猎奇", "奇葩", "震惊", "曝光", "吃瓜",
 ]
 
+# OPTIMIZE: 黑名单硬过滤
+BLACKLIST_KEYWORDS = [
+    "娱乐", "明星", "八卦", "绯闻", "恋情", "离婚", "网红", "综艺",
+    "体育", "足球", "篮球", "nba", "比赛", "球员",
+    "游戏", "电竞", "主播",
+]
+
 
 class TopicSelectorService:
     def __init__(self, llm_client: LLMClient | None = None) -> None:
@@ -202,7 +209,7 @@ class TopicSelectorService:
         score = 0
 
         if any(k in text for k in PRIORITY_KEYWORDS["finance"]):
-            score += 30
+            score += 60  # OPTIMIZE: 财经权重60分
         if any(k in text for k in PRIORITY_KEYWORDS["leaders"]):
             score += 20
         if any(k in text for k in PRIORITY_KEYWORDS["livelihood"]):
@@ -217,8 +224,16 @@ class TopicSelectorService:
         cls, news_items: list[NewsItem], short_count: int, long_count: int,
     ) -> dict[str, list[NewsItem]]:
         """LLM 不可用时的兜底选题：按关键词优先级排序后取前 N 条。"""
+        # OPTIMIZE: 黑名单过滤
+        filtered = []
+        for item in news_items:
+            text = f"{item.title} {item.description or ''}".lower()
+            if any(k in text for k in BLACKLIST_KEYWORDS):
+                continue
+            filtered.append(item)
+
         ranked = sorted(
-            news_items,
+            filtered,
             key=lambda item: cls._priority_score(item),
             reverse=True,
         )

@@ -1,7 +1,8 @@
 import re
 
-MIN_ARTICLE_CHARS = 200
-MAX_ARTICLE_CHARS = 300
+# OPTIMIZE: 字数从200-300提升到650-750
+MIN_ARTICLE_CHARS = 650
+MAX_ARTICLE_CHARS = 750
 
 
 def count_cn_chars(text: str) -> int:
