@@ -63,22 +63,18 @@ def init_scheduler() -> AsyncIOScheduler:
         id="collect_hot_topics", replace_existing=True,
     )
 
-    # 早间批次：07:05 经济类 2 篇
+    # 用户决策: 每天早中晚各1篇财经
     scheduler.add_job(
-        _job_batch, CronTrigger(hour=7, minute=5),
-        args=["morning", 2, "finance"], id="morning_batch", replace_existing=True,
+        _job_batch, CronTrigger(hour=8, minute=30),
+        args=["morning", 1, "finance"], id="morning_batch", replace_existing=True,
     )
-
-    # 午间批次：12:05 娱乐类 2 篇
     scheduler.add_job(
-        _job_batch, CronTrigger(hour=12, minute=5),
-        args=["noon", 2, "entertainment"], id="noon_batch", replace_existing=True,
+        _job_batch, CronTrigger(hour=12, minute=30),
+        args=["noon", 1, "finance"], id="noon_batch", replace_existing=True,
     )
-
-    # 晚间批次：18:35 民生类 2 篇
     scheduler.add_job(
-        _job_batch, CronTrigger(hour=18, minute=35),
-        args=["evening", 2, "livelihood"], id="evening_batch", replace_existing=True,
+        _job_batch, CronTrigger(hour=18, minute=30),
+        args=["evening", 1, "finance"], id="evening_batch", replace_existing=True,
     )
 
     # 公众号已发布文章同步：每日 03:17（避开整点降低风控，凌晨流量低）
