@@ -37,9 +37,7 @@ PROMPT = (
 async def generate() -> Path:
     settings = get_settings()
     async with httpx.AsyncClient(timeout=120.0) as client:
-        # 统一使用 SenseNova 图片模型。
         image_bytes = await _generate_via_chat_completion(client, settings, PROMPT)
-        print(f"图片模型: {settings.image_model}")
 
     img = Image.open(BytesIO(image_bytes))
 

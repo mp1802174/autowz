@@ -1,0 +1,342 @@
+INFO:     Started server process [2016123]
+INFO:     Waiting for application startup.
+2026-05-15 18:59:33 [INFO] autowz: 初始化数据库...
+2026-05-15 18:59:33,537 INFO sqlalchemy.engine.Engine SELECT DATABASE()
+2026-05-15 18:59:33,537 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-15 18:59:33,537 INFO sqlalchemy.engine.Engine SELECT @@sql_mode
+2026-05-15 18:59:33,537 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-15 18:59:33,538 INFO sqlalchemy.engine.Engine SELECT @@lower_case_table_names
+2026-05-15 18:59:33,538 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-15 18:59:33,538 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-15 18:59:33,538 INFO sqlalchemy.engine.Engine DESCRIBE `autowz`.`topics`
+2026-05-15 18:59:33,539 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-15 18:59:33,539 INFO sqlalchemy.engine.Engine DESCRIBE `autowz`.`articles`
+2026-05-15 18:59:33,539 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-15 18:59:33,540 INFO sqlalchemy.engine.Engine DESCRIBE `autowz`.`wechat_publish_records`
+2026-05-15 18:59:33,540 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-15 18:59:33,541 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-15 18:59:33 [INFO] autowz: 启动定时调度器...
+2026-05-15 18:59:33 [INFO] autowz.scheduler: 调度器已启动，共 4 个定时任务
+2026-05-15 18:59:33 [INFO] autowz.scheduler:   任务: collect_hot_topics, 下次执行: 2026-05-15 19:00:00+09:00
+2026-05-15 18:59:33 [INFO] autowz.scheduler:   任务: morning_batch, 下次执行: 2026-05-16 07:05:00+09:00
+2026-05-15 18:59:33 [INFO] autowz.scheduler:   任务: noon_batch, 下次执行: 2026-05-16 12:05:00+09:00
+2026-05-15 18:59:33 [INFO] autowz.scheduler:   任务: evening_batch, 下次执行: 2026-05-16 18:35:00+09:00
+2026-05-15 18:59:33 [INFO] autowz: Autowz 服务启动完成
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:53490 - "GET /health HTTP/1.1" 200 OK
+2026-05-15 19:00:00 [INFO] autowz.scheduler: 定时任务: 开始采集热点
+2026-05-15 19:00:01 [INFO] autowz.collector.search: 天行API [国内新闻]: 10 条
+2026-05-15 19:00:02 [INFO] autowz.collector.search: 天行API [财经新闻]: 10 条
+2026-05-15 19:00:04 [INFO] autowz.collector.search: 天行API [社会新闻]: 10 条
+2026-05-15 19:00:04 [INFO] autowz.collector.search: RSS [新华社]: 10 条
+2026-05-15 19:00:06 [INFO] autowz.collector.search: RSS [人民网]: 10 条
+2026-05-15 19:00:06 [INFO] autowz.collector.search: 新闻池采集完成: 原始 50 → 去重 50
+2026-05-15 19:00:06,873 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-15 19:00:06,876 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,876 INFO sqlalchemy.engine.Engine [generated in 0.00017s] {'title_1': '蚊子藏隐患？乙脑怎么防？这套“防护攻略”快收好', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,878 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,878 INFO sqlalchemy.engine.Engine [cached since 0.002429s ago] {'title_1': '英特尔与苹果“复婚记” 旧船票登新客船', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,880 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,880 INFO sqlalchemy.engine.Engine [cached since 0.004081s ago] {'title_1': '中国算力基建开辟海上赛道', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,881 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,881 INFO sqlalchemy.engine.Engine [cached since 0.005311s ago] {'title_1': '生产性服务业赋能高质量发展', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,882 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,882 INFO sqlalchemy.engine.Engine [cached since 0.00647s ago] {'title_1': '深耕基层治理 绘就民生幸福底色', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,883 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,883 INFO sqlalchemy.engine.Engine [cached since 0.007677s ago] {'title_1': '一季度我国水电清洁能源基地建设全面提速', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,885 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,885 INFO sqlalchemy.engine.Engine [cached since 0.009113s ago] {'title_1': '为何南方暴雨连连北方炎热高温？专家解析', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,886 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,886 INFO sqlalchemy.engine.Engine [cached since 0.01039s ago] {'title_1': '中超“首尾大战” 蓉城欲擒“虎” 士气正盛冲击连胜', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,887 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,887 INFO sqlalchemy.engine.Engine [cached since 0.01155s ago] {'title_1': '中方：美方务必慎之又慎处理台湾问题 关乎中美关系稳定', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,888 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,888 INFO sqlalchemy.engine.Engine [cached since 0.01268s ago] {'title_1': '4月汽车销量前十仅剩一款燃油车！', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,889 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,889 INFO sqlalchemy.engine.Engine [cached since 0.01362s ago] {'title_1': '商务部：中方愿同美方一道不断拉长合作清单', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,890 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,891 INFO sqlalchemy.engine.Engine [cached since 0.01488s ago] {'title_1': '近期全国小麦市场购销旺、价格稳', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,892 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,892 INFO sqlalchemy.engine.Engine [cached since 0.01624s ago] {'title_1': '17个地区将率先建设服务贸易创新发展示范区', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,893 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,893 INFO sqlalchemy.engine.Engine [cached since 0.01747s ago] {'title_1': '央行开展3000亿元买断式逆回购 缩量趋势延续', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,894 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,894 INFO sqlalchemy.engine.Engine [cached since 0.01858s ago] {'title_1': '三部门部署持续加强新能源汽车安全管理', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,895 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,895 INFO sqlalchemy.engine.Engine [cached since 0.01982s ago] {'title_1': '农业农村部：推动生猪价格保持在合理水平', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,897 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,897 INFO sqlalchemy.engine.Engine [cached since 0.02098s ago] {'title_1': '一季度职工基本医疗保险缴费收入同比增长5.3%', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,898 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,898 INFO sqlalchemy.engine.Engine [cached since 0.02207s ago] {'title_1': '如何看待“投资金”与“首饰金”消费的一升一降', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,899 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,899 INFO sqlalchemy.engine.Engine [cached since 0.02298s ago] {'title_1': '多地积极推动人工智能技术应用落地', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,900 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,900 INFO sqlalchemy.engine.Engine [cached since 0.02391s ago] {'title_1': '中美在韩国举行经贸磋商', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,900 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,900 INFO sqlalchemy.engine.Engine [cached since 0.02484s ago] {'title_1': '中国海警局发布位马祖岛、乌丘屿附近海域执法巡查示意图', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,901 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,901 INFO sqlalchemy.engine.Engine [cached since 0.02574s ago] {'title_1': '东部战区组织轰炸机编队赴台岛以东开展远海战备巡航', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,902 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,902 INFO sqlalchemy.engine.Engine [cached since 0.02681s ago] {'title_1': '深圳新鹏城官宣：张煜东等五名球员合同期满离队', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,903 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,903 INFO sqlalchemy.engine.Engine [cached since 0.02778s ago] {'title_1': '外交部：中方对巴拿马有关地方政府强拆华人抵巴纪念碑行径严重不满', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,904 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,904 INFO sqlalchemy.engine.Engine [cached since 0.02876s ago] {'title_1': '国台办：有关军事行动是为了遏制“台独”勾连外部势力祸乱台海', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,905 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,905 INFO sqlalchemy.engine.Engine [cached since 0.0297s ago] {'title_1': '外交部：任何在台湾问题上越线挑衅的恶劣行径必将遭到中方坚决回击', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,906 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,906 INFO sqlalchemy.engine.Engine [cached since 0.0306s ago] {'title_1': '湖北一企业给员工发年终奖最高160万 累计共发放奖金2000多万元', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,907 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,907 INFO sqlalchemy.engine.Engine [cached since 0.03152s ago] {'title_1': '外交部发言人就也门南方局势答记者问', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,908 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,908 INFO sqlalchemy.engine.Engine [cached since 0.03246s ago] {'title_1': '中国海警局发布环台岛执法巡查示意图', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,909 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,909 INFO sqlalchemy.engine.Engine [cached since 0.03335s ago] {'title_1': '东部战区位台岛西南空域开展区域巡逻、空中对抗、信息支援等科目演练', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,910 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,910 INFO sqlalchemy.engine.Engine [cached since 0.03427s ago] {'title_1': '也许，这就是家的答案', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,912 INFO sqlalchemy.engine.Engine INSERT INTO topics (title, source, hot_score, conflict_score, summary, source_url, collected_at, batch_date, status) VALUES (%(title)s, %(source)s, %(hot_score)s, %(conflict_score)s, %(summary)s, %(source_url)s, now(), %(batch_date)s, %(status)s)
+2026-05-15 19:00:06,912 INFO sqlalchemy.engine.Engine [generated in 0.00016s] {'title': '也许，这就是家的答案', 'source': '新华社', 'hot_score': 0, 'conflict_score': 0, 'summary': '不久前，我们在“新华视界”微信公众号上发起了国际家庭日照片特别活动“看到这张照片，我想家了……”。我们收到了大家的踊跃投稿。在评论区，大家分享了自己相册中的珍贵回忆。\u3000\u3000今天，在国际家庭日到来之际，让我们一起看看这些精彩的家庭照片的背后，都承载着哪些动人故事吧。\u2003\u ... (32 characters truncated) ... 五府山。行至山坡边，我为爱人和年幼的女儿拍下了这张合影。如今我和爱人已经退休，女儿也成为了一名高中教师。每每翻看这张老照片，当年的温馨情景便涌上心头。@李江林\u2003\u2003这是我在2001年6月拍到的一张父母在老家平房屋顶晒麦子的照片。那时，我在外边工作，父母居住在老家。年近八旬的父亲仍', 'source_url': 'http://www.news.cn/20260515/0e63ee9561d74c05bd4b9ae49eaf5f0f/c.html', 'batch_date': datetime.date(2026, 5, 15), 'status': 'collected'}
+2026-05-15 19:00:06,913 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,913 INFO sqlalchemy.engine.Engine [cached since 0.03779s ago] {'title_1': '港股15日跌1.62% 收报25962.73点', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,915 INFO sqlalchemy.engine.Engine INSERT INTO topics (title, source, hot_score, conflict_score, summary, source_url, collected_at, batch_date, status) VALUES (%(title)s, %(source)s, %(hot_score)s, %(conflict_score)s, %(summary)s, %(source_url)s, now(), %(batch_date)s, %(status)s)
+2026-05-15 19:00:06,915 INFO sqlalchemy.engine.Engine [cached since 0.002742s ago] {'title': '港股15日跌1.62% 收报25962.73点', 'source': '新华社', 'hot_score': 0, 'conflict_score': 0, 'summary': '新华社香港5月15日电 香港恒生指数15日跌426.31点，跌幅1.62%，收报25962.73点。全日主板成交3253.86亿港元。\u2003\u2003国企指数跌167.6点，收报8691.03点，跌幅1.89%。恒生科技指数跌135.06点，收报4941.14点，跌幅2.66%。\u200 ... (37 characters truncated) ... 易所跌1.7%，收报416.4港元；中国移动跌0.58%，收报86.2港元；汇丰控股跌0.78%，收报139.4港元。\u2003\u2003香港本地股方面，长实集团跌0.49%，收报51.25港元；新鸿基地产跌0.49%，收报142.6港元；恒基地产跌1.17%，收报33.88港元。\u2003', 'source_url': 'http://www.news.cn/20260515/2744eafa47324efbac10ab8e9fd8dac7/c.html', 'batch_date': datetime.date(2026, 5, 15), 'status': 'collected'}
+2026-05-15 19:00:06,915 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,916 INFO sqlalchemy.engine.Engine [cached since 0.03988s ago] {'title_1': '专家：“吃海鲜就不用补碘”是错误观念', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,917 INFO sqlalchemy.engine.Engine INSERT INTO topics (title, source, hot_score, conflict_score, summary, source_url, collected_at, batch_date, status) VALUES (%(title)s, %(source)s, %(hot_score)s, %(conflict_score)s, %(summary)s, %(source_url)s, now(), %(batch_date)s, %(status)s)
+2026-05-15 19:00:06,917 INFO sqlalchemy.engine.Engine [cached since 0.004778s ago] {'title': '专家：“吃海鲜就不用补碘”是错误观念', 'source': '新华社', 'hot_score': 0, 'conflict_score': 0, 'summary': '每年5月15日是全国防治碘缺乏病日。专家表示，广大市民应树立科学补碘意识，定期关注自身碘营养状态，摒弃“吃海鲜就不用补碘”“甲状腺有问题就停碘盐”等错误观念，科学补碘，守护个人健康。\u2003\u2003青海红十字医院内分泌代谢科主任冯春说，并非所有海鲜都“高碘”，海带、紫菜是碘含量较高的食物， ... (22 characters truncated) ... 鲜，碘含量并不突出。尤其是孕妇群体的碘摄入量需求相对较高，若盲目停用碘盐，仅靠吃鱼虾类海鲜难以达到推荐标准。\u2003\u2003还有一种错误观念认为“甲状腺有问题就停碘盐”，对此冯春解释说，碘过量会诱发甲状腺结节、甲状腺功能异常等，例如甲亢患者需严格限制碘摄入量，并在医生指导下选择无碘盐，避免', 'source_url': 'http://www.news.cn/20260515/a90bf7673bc149ac91b2aafac32af934/c.html', 'batch_date': datetime.date(2026, 5, 15), 'status': 'collected'}
+2026-05-15 19:00:06,917 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,918 INFO sqlalchemy.engine.Engine [cached since 0.04185s ago] {'title_1': '安徽：打通基础研究、应用开发、成果转化的创新链条', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,919 INFO sqlalchemy.engine.Engine INSERT INTO topics (title, source, hot_score, conflict_score, summary, source_url, collected_at, batch_date, status) VALUES (%(title)s, %(source)s, %(hot_score)s, %(conflict_score)s, %(summary)s, %(source_url)s, now(), %(batch_date)s, %(status)s)
+2026-05-15 19:00:06,919 INFO sqlalchemy.engine.Engine [cached since 0.006726s ago] {'title': '安徽：打通基础研究、应用开发、成果转化的创新链条', 'source': '新华社', 'hot_score': 0, 'conflict_score': 0, 'summary': '5月15日，安徽省人民政府新闻办公室在省行政中心举行开局起步“十五五”安徽专场新闻发布会。发布会围绕“锚定‘三地一区’实现新突破和取得‘三个新的更大进展’目标，奋力谱写中国式现代化安徽篇章”主题，解读《安徽省国民经济和社会发展第十五个五年规划纲要》，介绍经济社会发展目标和主要任务。安徽省委副书记、省长王清宪表示，科技创新需要不断改革，安徽搭平台、建机制，打通基础研究、应用开发、成果转化的创新链条。\u3000\u3000新华社音视频部制作', 'source_url': 'http://www.news.cn/20260515/3bf57205bc2e43b39e312ff5ebd939d0/c.html', 'batch_date': datetime.date(2026, 5, 15), 'status': 'collected'}
+2026-05-15 19:00:06,919 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,920 INFO sqlalchemy.engine.Engine [cached since 0.04388s ago] {'title_1': '陆永江：愿帮助更多残疾人绣出幸福生活 把非遗绣向世界每个角落', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,921 INFO sqlalchemy.engine.Engine INSERT INTO topics (title, source, hot_score, conflict_score, summary, source_url, collected_at, batch_date, status) VALUES (%(title)s, %(source)s, %(hot_score)s, %(conflict_score)s, %(summary)s, %(source_url)s, now(), %(batch_date)s, %(status)s)
+2026-05-15 19:00:06,921 INFO sqlalchemy.engine.Engine [cached since 0.008722s ago] {'title': '陆永江：愿帮助更多残疾人绣出幸福生活 把非遗绣向世界每个角落', 'source': '新华社', 'hot_score': 0, 'conflict_score': 0, 'summary': '5月15日，国务院新闻办公室举行“新征程上的奋斗者”中外记者见面会，请残疾人代表围绕“以自强精神为推进中国式现代化贡献力量”与中外记者见面交流。贵州省黔东南苗族侗族自治州黎平县彦婷手工刺绣坊负责人陆永江表示，愿意用一枚小小的绣花针，帮助更多的残疾人绣出幸福生活，也把非遗绣向世界每个角落。\u2003\u2003新华社音视频部制作', 'source_url': 'http://www.news.cn/20260515/16029b168e2d4be8bc4ad4b1c85c54ec/c.html', 'batch_date': datetime.date(2026, 5, 15), 'status': 'collected'}
+2026-05-15 19:00:06,921 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,921 INFO sqlalchemy.engine.Engine [cached since 0.04582s ago] {'title_1': '陈静：让听障者看到笑、看懂笑，不错过春晚每一幕温暖', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,922 INFO sqlalchemy.engine.Engine INSERT INTO topics (title, source, hot_score, conflict_score, summary, source_url, collected_at, batch_date, status) VALUES (%(title)s, %(source)s, %(hot_score)s, %(conflict_score)s, %(summary)s, %(source_url)s, now(), %(batch_date)s, %(status)s)
+2026-05-15 19:00:06,922 INFO sqlalchemy.engine.Engine [cached since 0.01062s ago] {'title': '陈静：让听障者看到笑、看懂笑，不错过春晚每一幕温暖', 'source': '新华社', 'hot_score': 0, 'conflict_score': 0, 'summary': '5月15日，国务院新闻办公室举行“新征程上的奋斗者”中外记者见面会，请残疾人代表围绕“以自强精神为推进中国式现代化贡献力量”与中外记者见面交流。中国残疾人艺术团舞蹈演员、舞蹈一队队长陈静表示，希望在团圆夜每一阵笑声都能够准时、无障碍地抵达每一个听障者的心里，让他们不仅能看到笑，也能看懂笑，不会错过春晚的每一幕温暖，与家人、国人共享年度文化盛宴。\u2003\u2003新华社音视频部制作', 'source_url': 'http://www.news.cn/20260515/347502011aa641ff9d8894fe96b428cf/c.html', 'batch_date': datetime.date(2026, 5, 15), 'status': 'collected'}
+2026-05-15 19:00:06,923 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,923 INFO sqlalchemy.engine.Engine [cached since 0.04783s ago] {'title_1': '印尼山体滑坡致9人死亡', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,926 INFO sqlalchemy.engine.Engine INSERT INTO topics (title, source, hot_score, conflict_score, summary, source_url, collected_at, batch_date, status) VALUES (%(title)s, %(source)s, %(hot_score)s, %(conflict_score)s, %(summary)s, %(source_url)s, now(), %(batch_date)s, %(status)s)
+2026-05-15 19:00:06,926 INFO sqlalchemy.engine.Engine [cached since 0.01375s ago] {'title': '印尼山体滑坡致9人死亡', 'source': '新华社', 'hot_score': 0, 'conflict_score': 0, 'summary': '新华社雅加达5月15日电（记者高竹\u3000李斯博）印度尼西亚警方15日表示，印尼西苏门答腊省西均琼县一处非法金矿附近14日发生山体滑坡，造成9人死亡。\u2003\u2003目击者说，该金矿靠近一处山崖，滑坡发生时，数名矿工正在作业，多人被掩埋。目前，遇难者遗体已被安葬。\u2003\u2003受山体滑坡等因素影响，印尼矿难事故时有发生，雨季尤为多发。', 'source_url': 'http://www.news.cn/20260515/e7f493cb9d0846128fa4529bf4ecd805/c.html', 'batch_date': datetime.date(2026, 5, 15), 'status': 'collected'}
+2026-05-15 19:00:06,926 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,927 INFO sqlalchemy.engine.Engine [cached since 0.05084s ago] {'title_1': '我国出台药品试验数据保护办法', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,928 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,928 INFO sqlalchemy.engine.Engine [cached since 0.05203s ago] {'title_1': '非洲疾控中心：刚果（金）暴发埃博拉疫情', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,929 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,929 INFO sqlalchemy.engine.Engine [cached since 0.05327s ago] {'title_1': '东京股市下跌', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,930 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,930 INFO sqlalchemy.engine.Engine [cached since 0.05445s ago] {'title_1': '学习卡丨“人不负青山，青山定不负人”', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,931 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,931 INFO sqlalchemy.engine.Engine [cached since 0.05546s ago] {'title_1': '镜观·足迹｜呵护千山万水 擘画永续发展', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,932 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,932 INFO sqlalchemy.engine.Engine [cached since 0.05675s ago] {'title_1': '学习手记 | “环境就是民生”', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,933 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,933 INFO sqlalchemy.engine.Engine [cached since 0.05778s ago] {'title_1': '刘国中在安徽调研时强调 全力以赴夺取夏粮丰收 全面打牢秋粮生产基础', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,935 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,935 INFO sqlalchemy.engine.Engine [cached since 0.05913s ago] {'title_1': '韩正会见中美高级别二轨对话美方代表团', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,936 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,936 INFO sqlalchemy.engine.Engine [cached since 0.06011s ago] {'title_1': '国务院印发《关于开展第四次全国农业普查的通知》', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,937 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,937 INFO sqlalchemy.engine.Engine [cached since 0.06111s ago] {'title_1': '中央军委主席习近平签署命令 发布《军事设施建设条例》', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,938 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,938 INFO sqlalchemy.engine.Engine [cached since 0.0621s ago] {'title_1': '丁薛祥在山西调研时强调 守好公平公正“生命线” 确保实现“平安高考”目标', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,939 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,939 INFO sqlalchemy.engine.Engine [cached since 0.06313s ago] {'title_1': '中共中央办公厅印发《党组讨论和决定党员处分事项工作程序规定》', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,940 INFO sqlalchemy.engine.Engine SELECT topics.id AS topics_id, topics.title AS topics_title, topics.source AS topics_source, topics.hot_score AS topics_hot_score, topics.conflict_score AS topics_conflict_score, topics.summary AS topics_summary, topics.source_url AS topics_source_url, topics.collected_at AS topics_collected_at, topics.batch_date AS topics_batch_date, topics.status AS topics_status 
+FROM topics 
+WHERE topics.title = %(title_1)s AND topics.batch_date = %(batch_date_1)s 
+ LIMIT %(param_1)s
+2026-05-15 19:00:06,940 INFO sqlalchemy.engine.Engine [cached since 0.06409s ago] {'title_1': '全国人大常委会启动节约能源法执法检查', 'batch_date_1': datetime.date(2026, 5, 15), 'param_1': 1}
+2026-05-15 19:00:06,940 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-15 19:00:06 [INFO] autowz.pipeline: 新闻池采集完成，存入 50 条（去重后）
+2026-05-15 19:00:06 [INFO] autowz.scheduler: 定时采集完成: 50 条
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-05-15 19:23:07 [INFO] autowz: 正在关闭...
+2026-05-15 19:23:07 [INFO] autowz.scheduler: 调度器已停止
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2016123]
+INFO:     Started server process [774115]
+INFO:     Waiting for application startup.
+2026-05-23 11:47:15 [INFO] autowz: 初始化数据库...
+2026-05-23 11:47:15,685 INFO sqlalchemy.engine.Engine SELECT DATABASE()
+2026-05-23 11:47:15,685 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-23 11:47:15,686 INFO sqlalchemy.engine.Engine SELECT @@sql_mode
+2026-05-23 11:47:15,686 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-23 11:47:15,686 INFO sqlalchemy.engine.Engine SELECT @@lower_case_table_names
+2026-05-23 11:47:15,687 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-23 11:47:15,687 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-23 11:47:15,687 INFO sqlalchemy.engine.Engine DESCRIBE `autowz`.`topics`
+2026-05-23 11:47:15,687 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-23 11:47:15,688 INFO sqlalchemy.engine.Engine DESCRIBE `autowz`.`articles`
+2026-05-23 11:47:15,688 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-23 11:47:15,689 INFO sqlalchemy.engine.Engine DESCRIBE `autowz`.`wechat_publish_records`
+2026-05-23 11:47:15,689 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-05-23 11:47:15,689 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-23 11:47:15 [INFO] autowz: 启动定时调度器...
+2026-05-23 11:47:15 [INFO] autowz.scheduler: 调度器已启动，共 5 个定时任务
+2026-05-23 11:47:15 [INFO] autowz.scheduler:   任务: collect_hot_topics, 下次执行: 2026-05-23 12:00:00+09:00
+2026-05-23 11:47:15 [INFO] autowz.scheduler:   任务: noon_batch, 下次执行: 2026-05-23 12:05:00+09:00
+2026-05-23 11:47:15 [INFO] autowz.scheduler:   任务: evening_batch, 下次执行: 2026-05-23 18:35:00+09:00
+2026-05-23 11:47:15 [INFO] autowz.scheduler:   任务: sync_published_articles, 下次执行: 2026-05-24 03:17:00+09:00
+2026-05-23 11:47:15 [INFO] autowz.scheduler:   任务: morning_batch, 下次执行: 2026-05-24 07:05:00+09:00
+2026-05-23 11:47:15 [INFO] autowz: Autowz 服务启动完成
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:46482 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-05-23 11:56:49 [INFO] autowz: 正在关闭...
+2026-05-23 11:56:49 [INFO] autowz.scheduler: 调度器已停止
+INFO:     Application shutdown complete.
+INFO:     Finished server process [774115]

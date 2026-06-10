@@ -75,10 +75,10 @@ def init_scheduler() -> AsyncIOScheduler:
         args=["noon", 2, "entertainment"], id="noon_batch", replace_existing=True,
     )
 
-    # 晚间批次：18:35 国际形势 2 篇
+    # 晚间批次：18:35 民生类 2 篇
     scheduler.add_job(
         _job_batch, CronTrigger(hour=18, minute=35),
-        args=["evening", 2, "international"], id="evening_batch", replace_existing=True,
+        args=["evening", 2, "livelihood"], id="evening_batch", replace_existing=True,
     )
 
     # 公众号已发布文章同步：每日 03:17（避开整点降低风控，凌晨流量低）

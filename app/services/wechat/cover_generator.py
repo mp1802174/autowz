@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import re
 import tempfile
@@ -89,15 +90,16 @@ async def _generate_via_chat_completion(
 
     errors: list[str] = []
     for provider in providers:
+        label = f"{provider.get('name') or '?'}/{provider['model']}"
         try:
             logger.info(
                 "Generating cover image via %s (%s)",
-                provider["model"],
+                label,
                 _redact_url(provider["api_url"]),
             )
             return await _generate_with_provider(client, provider, prompt)
         except Exception as exc:
-            error = f"{provider['model']}: {exc}"
+            error = f"{label}: {exc}"
             errors.append(error)
             logger.warning("Image provider failed, trying fallback: %s", error)
 
@@ -105,47 +107,65 @@ async def _generate_via_chat_completion(
 
 
 def _build_image_providers(settings: Any) -> list[dict[str, str]]:
-    """Return image providers in priority order: API -> FALLBACK -> FALLBACK2.
+    """Load image providers from the JSON config file.
 
-    Each provider tier accepts:
-      *_API_KEY / *_API_URL  - credentials and endpoint
-      *_MODEL or *_MODELS    - one or more model names (comma-separated)
-      *_PROXY                - optional SOCKS5/HTTP proxy URL applied only to
-                               this provider's HTTP client; never leaks to
-                               other network calls in the process.
+    Schema: a JSON array of objects with these fields:
+      - name     str   - free-form label used in logs
+      - api_url  str   - either an /images/generations endpoint, or a chat
+                         endpoint that the call layer will rewrite
+      - api_key  str   - Bearer token
+      - models   list  - one or more model names; each becomes its own
+                         provider entry, tried in array order
+      - proxy    str   - optional SOCKS5/HTTP proxy applied ONLY to this
+                         provider; never leaks to other network calls
+      - enabled  bool  - defaults to true; set false to temporarily skip
+
+    Entries missing api_key/api_url or with empty models are silently skipped.
     """
-    tiers = [
-        {
-            "key": getattr(settings, "image_api_key", ""),
-            "url": getattr(settings, "image_api_url", ""),
-            "models": getattr(settings, "image_model", ""),
-            "proxy": getattr(settings, "image_api_proxy", "") or "",
-        },
-        {
-            "key": getattr(settings, "image_fallback_api_key", ""),
-            "url": getattr(settings, "image_fallback_api_url", ""),
-            "models": getattr(settings, "image_fallback_models", ""),
-            "proxy": getattr(settings, "image_fallback_proxy", "") or "",
-        },
-        {
-            "key": getattr(settings, "image_fallback2_api_key", ""),
-            "url": getattr(settings, "image_fallback2_api_url", ""),
-            "models": getattr(settings, "image_fallback2_models", ""),
-            "proxy": getattr(settings, "image_fallback2_proxy", "") or "",
-        },
-    ]
+    raw_path = getattr(settings, "image_providers_file", "image_providers.json")
+    path = Path(raw_path)
+    if not path.is_absolute():
+        project_root = Path(__file__).resolve().parents[3]
+        path = project_root / path
+
+    if not path.exists():
+        logger.warning("image providers file not found: %s", path)
+        return []
+
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.error("failed to parse image providers file %s: %s", path, exc)
+        return []
+
+    if not isinstance(config, list):
+        logger.error("image providers file root must be a JSON array: %s", path)
+        return []
 
     providers: list[dict[str, str]] = []
-    for tier in tiers:
-        if not tier["key"] or not tier["url"]:
+    for entry in config:
+        if not isinstance(entry, dict):
             continue
-        models = [m.strip() for m in str(tier["models"]).split(",") if m.strip()]
+        if not entry.get("enabled", True):
+            continue
+        api_key = str(entry.get("api_key") or "").strip()
+        api_url = str(entry.get("api_url") or "").strip()
+        if not api_key or not api_url:
+            continue
+        models_raw = entry.get("models") or []
+        if isinstance(models_raw, str):
+            models = [m.strip() for m in models_raw.split(",") if m.strip()]
+        else:
+            models = [str(m).strip() for m in models_raw if str(m).strip()]
+        proxy = str(entry.get("proxy") or "").strip()
+        name = str(entry.get("name") or "").strip()
         for model in models:
             providers.append({
-                "api_key": tier["key"],
-                "api_url": tier["url"],
+                "name": name,
+                "api_key": api_key,
+                "api_url": api_url,
                 "model": model,
-                "proxy": tier["proxy"],
+                "proxy": proxy,
             })
 
     return providers
@@ -234,24 +254,14 @@ async def _generate_via_images_generation(
     settings: Any,
     prompt: str,
 ) -> bytes:
-    """Call SenseNova /images/generations explicitly and parse generated image bytes."""
-    image_api_url = settings.image_api_url.rstrip("/")
-    if image_api_url.endswith("/chat/completions"):
-        image_api_url = image_api_url.removesuffix("/chat/completions")
-    if not image_api_url.endswith("/images/generations"):
-        image_api_url = f"{image_api_url}/images/generations"
-
-    response = await client.post(
-        image_api_url,
-        headers={
-            "Authorization": f"Bearer {settings.image_api_key}",
-            "Content-Type": "application/json",
-        },
-        json={"model": settings.image_model, "prompt": prompt, "n": 1},
-        timeout=120.0,
-    )
-    _raise_for_status_with_body(response)
-    return await _image_bytes_from_generation_response(client, response.json())
+    """Deprecated single-provider helper. Kept as a thin shim for ad-hoc
+    callers that want to hit the first configured provider's
+    /images/generations endpoint directly. The cover pipeline goes through
+    ``_generate_via_chat_completion`` and never calls this."""
+    providers = _build_image_providers(settings)
+    if not providers:
+        raise ValueError("图片生成 API Key 未配置")
+    return await _do_call_provider(client, providers[0], prompt)
 
 
 async def _image_bytes_from_generation_response(

@@ -4,18 +4,18 @@ from app.services.collector.search import NewsItem
 from app.services.selector.service import TopicSelectorService
 
 
-def test_fallback_prioritizes_finance_and_international_topics():
+def test_fallback_prioritizes_finance_and_livelihood_topics():
     items = [
         NewsItem(title="某明星演唱会绯闻持续发酵", description="八卦热搜引发吃瓜", source="weibo"),
-        NewsItem(title="美联储降息预期升温 全球股市波动", description="市场关注美元、利率与就业数据", source="rss"),
-        NewsItem(title="两国元首会晤 聚焦关税与供应链合作", description="国际关系与经贸议题升温", source="rss"),
+        NewsItem(title="一季度CPI公布 居民消费温和回升", description="物价与消费数据备受关注", source="rss"),
+        NewsItem(title="多地上调养老金 退休职工待遇提升", description="社保养老与民生保障升温", source="rss"),
     ]
 
     result = TopicSelectorService._fallback_select(items, short_count=2, long_count=0)
 
     assert [item.title for item in result["short"]] == [
-        "两国元首会晤 聚焦关税与供应链合作",
-        "美联储降息预期升温 全球股市波动",
+        "一季度CPI公布 居民消费温和回升",
+        "多地上调养老金 退休职工待遇提升",
     ]
 
 
