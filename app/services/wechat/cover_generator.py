@@ -496,7 +496,7 @@ def _generate_text_cover(title: str, output_path: str | None = None) -> str:
     _draw_wrapped_text(draw, clean_title, title_font, max_width=780, start_y=120, fill=(255, 255, 255))
 
     # 底部标识
-    draw.text((60, 330), "观澜 · 财经观察", font=small_font, fill=(200, 210, 230))
+    draw.text((60, 330), "现象观察 · 财经观察", font=small_font, fill=(200, 210, 230))
 
     out = _prepare_output_path(output_path, suffix=".jpg", prefix="autowz_cover_")
     img.save(str(out), "JPEG", quality=90)

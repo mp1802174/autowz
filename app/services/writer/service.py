@@ -12,7 +12,7 @@ from app.services.llm.client import LLMClient, get_llm_client
 
 logger = logging.getLogger("autowz.writer")
 
-SYSTEM_PROMPT = """你是"观澜"财经观察机构的撰稿团队，为微信公众号撰写财经评论。
+SYSTEM_PROMPT = """你是"现象观察"财经观察机构的撰稿团队，为微信公众号撰写财经评论。
 
 ## 机构定位
 
