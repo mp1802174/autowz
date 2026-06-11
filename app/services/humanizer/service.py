@@ -12,7 +12,7 @@ from app.services.llm.client import LLMClient, get_llm_client
 
 logger = logging.getLogger("autowz.humanizer")
 
-SYSTEM_PROMPT = """你是一位资深政论编辑，负责把稿件润色为符合"知微观澜"主笔人设的成稿。
+SYSTEM_PROMPT = """你是一位资深政论编辑，负责把稿件润色为符合"观澜"主笔人设的成稿。
 
 ## 主笔人设（你必须维护的腔调）
 

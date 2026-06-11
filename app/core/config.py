@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     app_debug: bool = Field(default=True, alias="APP_DEBUG")
     api_prefix: str = Field(default="/api/v1", alias="API_PREFIX")
 
-    content_author: str = Field(default="知微观澜", alias="CONTENT_AUTHOR")
+    content_author: str = Field(default="", alias="CONTENT_AUTHOR")  # 改为空,不显示作者名
     default_comment_open: int = Field(default=1, alias="DEFAULT_COMMENT_OPEN")
     default_fans_comment_only: int = Field(default=0, alias="DEFAULT_FANS_COMMENT_ONLY")
 
