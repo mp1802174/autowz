@@ -10,7 +10,7 @@
 | `APP_ENV` | `app_env` | `dev` | 环境，`prod` 时日志格式为 JSON。 |
 | `APP_DEBUG` | `app_debug` | `true` | 调试模式，影响日志级别和 SQL echo。 |
 | `API_PREFIX` | `api_prefix` | `/api/v1` | API 路由前缀。 |
-| `CONTENT_AUTHOR` | `content_author` | `知微观澜` | 微信文章作者。 |
+| `CONTENT_AUTHOR` | `content_author` | `现象观察` | 微信文章作者。 |
 | `DEFAULT_COMMENT_OPEN` | `default_comment_open` | `1` | 微信评论开关。 |
 | `DEFAULT_FANS_COMMENT_ONLY` | `default_fans_comment_only` | `0` | 是否仅粉丝评论。 |
 | `WECHAT_APP_ID` | `wechat_app_id` | - | 公众号 AppID，敏感。 |

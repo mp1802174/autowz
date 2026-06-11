@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-**autowz**（《今天怎么看》微信公众号自动发布系统）— 自动抓取热点话题（微博+百度热搜）、LLM 生成评论文章、人味化改写、合规审核后发布到微信公众号"知微观澜"。Python 3.11+ / FastAPI / MySQL / APScheduler。
+**autowz**（《现象观察》微信公众号自动发布系统）— 自动抓取热点话题（微博+百度热搜）、LLM 生成评论文章、人味化改写、合规审核后发布到微信公众号"现象观察"。Python 3.11+ / FastAPI / MySQL / APScheduler。
 
 ## 常用命令
 
