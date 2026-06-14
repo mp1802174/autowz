@@ -59,8 +59,9 @@ def append_char_count_suffix(text: str) -> str:
 
 
 def finalize_article(text: str, max_chars: int = MAX_ARTICLE_CHARS) -> str:
-    """先按上限裁剪正文，再在结尾追加字数括号。总字数包含括号时仍不超过上限。"""
-    suffix_template = "（全文共999字）"
-    body_limit = max(0, max_chars - count_cn_chars(suffix_template))
-    body = trim_markdown_to_max_chars(_strip_count_suffix(text), body_limit)
-    return append_char_count_suffix(body)
+    """裁剪正文到上限字数。
+
+    Phase 1 改动: 去除"(全文共X字)"机器指纹,只做裁剪。
+    """
+    body = _strip_count_suffix(text)
+    return trim_markdown_to_max_chars(body, max_chars)

@@ -28,7 +28,13 @@ class WechatClient:
         return data
 
     async def get(self, path: str, params: dict | None = None) -> dict:
-        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+        # 微信API不走代理,使用本机真实IP
+        # httpx 0.28 使用 trust_env=False 禁用环境变量代理
+        async with httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=self.timeout,
+            trust_env=False  # 禁用环境变量代理
+        ) as client:
             response = await client.get(path, params=params)
             response.raise_for_status()
             data = response.json()
@@ -37,7 +43,12 @@ class WechatClient:
     async def post_json(
         self, path: str, params: dict | None = None, json_body: dict | None = None,
     ) -> dict:
-        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+        # 微信API不走代理,使用本机真实IP
+        async with httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=self.timeout,
+            trust_env=False  # 禁用环境变量代理
+        ) as client:
             response = await client.post(path, params=params, json=json_body)
             response.raise_for_status()
             data = response.json()
@@ -58,7 +69,12 @@ class WechatClient:
         mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif"}
         mime = mime_map.get(fp.suffix.lower(), "application/octet-stream")
 
-        async with httpx.AsyncClient(base_url=self.base_url, timeout=60.0) as client:
+        # 微信API不走代理,使用本机真实IP
+        async with httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=60.0,
+            trust_env=False  # 禁用环境变量代理
+        ) as client:
             with open(fp, "rb") as f:
                 files = {field_name: (fp.name, f, mime)}
                 response = await client.post(path, params=params, files=files)

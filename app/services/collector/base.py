@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 
-@dataclass(slots=True)
+@dataclass
 class CollectedTopic:
     title: str
     source: str

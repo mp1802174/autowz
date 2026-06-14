@@ -54,30 +54,27 @@ async def _job_sync_published():
 
 
 def init_scheduler() -> AsyncIOScheduler:
-    """初始化并启动定时调度器。"""
+    """初始化并启动定时调度器。
+
+    Phase 1 改动: 每天只发 1 篇(早间),改为 7:30 避开整点。
+    """
     scheduler = get_scheduler()
 
-    # 热点采集：每30分钟
+    # 热点采集:每30分钟
     scheduler.add_job(
         _job_collect, CronTrigger(minute="*/30"),
         id="collect_hot_topics", replace_existing=True,
     )
 
-    # 用户决策: 每天早中晚各1篇财经
+    # Phase 1: 每天只发 1 篇财经精品(早间 7:30)
     scheduler.add_job(
-        _job_batch, CronTrigger(hour=8, minute=30),
-        args=["morning", 1, "finance"], id="morning_batch", replace_existing=True,
-    )
-    scheduler.add_job(
-        _job_batch, CronTrigger(hour=12, minute=30),
-        args=["noon", 1, "finance"], id="noon_batch", replace_existing=True,
-    )
-    scheduler.add_job(
-        _job_batch, CronTrigger(hour=18, minute=30),
-        args=["evening", 1, "finance"], id="evening_batch", replace_existing=True,
+        _job_batch, CronTrigger(hour=7, minute=30),
+        args=["morning", 1, "finance"],
+        id="finance_daily_batch",
+        replace_existing=True,
     )
 
-    # 公众号已发布文章同步：每日 03:17（避开整点降低风控，凌晨流量低）
+    # 公众号已发布文章同步:每日 03:17(避开整点降低风控,凌晨流量低)
     scheduler.add_job(
         _job_sync_published, CronTrigger(hour=3, minute=17),
         id="sync_published_articles", replace_existing=True,
@@ -85,7 +82,7 @@ def init_scheduler() -> AsyncIOScheduler:
 
     scheduler.start()
     jobs = scheduler.get_jobs()
-    logger.info("调度器已启动，共 %d 个定时任务", len(jobs))
+    logger.info("调度器已启动,共 %d 个定时任务", len(jobs))
     for job in jobs:
         logger.info("  任务: %s, 下次执行: %s", job.id, job.next_run_time)
     return scheduler

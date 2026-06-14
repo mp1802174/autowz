@@ -1,0 +1,251 @@
+"""财经模块 Writer - 数据驱动解读型写作
+
+重构后的 writer,专注于财经数据解读,去除 AI 味和机器指纹。
+"""
+
+import logging
+
+import markdown as md_lib
+
+from app.services.content_length import (
+    MAX_ARTICLE_CHARS,
+    MIN_ARTICLE_CHARS,
+    count_cn_chars,
+    finalize_article,
+)
+from app.services.llm.client import LLMClient, get_llm_client
+
+logger = logging.getLogger("autowz.finance.writer")
+
+# 数据驱动解读型 prompt
+SYSTEM_PROMPT = """你是"现象观察"财经观察机构的数据分析师,为微信公众号撰写财经数据解读文章。
+
+## 核心定位
+不做新闻搬运工,做数据翻译官。用数据说话,把冰冷的数字转化为对读者钱包和生计有意义的洞察。
+
+## 写作结构(严格遵守)
+
+### 1. 钩子开头(50-80 字,1-2 段)
+- 第一句:用反常识数字或反差制造冲击("5月新能源车销量占比首次破56%,传统燃油车真的只剩4成了")
+- 快速点出"这和读者的关系"(购车成本/投资机会/就业形势)
+- **禁止**:"据XX报道"开头、背景铺垫、概念解释
+
+### 2. 数据呈现(200-250 字,2-3 段)
+- 核心数据 + 同比/环比/历史对比
+- 用简洁的列表或小表格呈现关键数字
+- 每个数据**必带来源**("中汽协数据""国家统计局公布")
+- **禁止**:大段引用、专家原话堆砌、流水账式罗列
+
+### 3. 解读分析(200-250 字,2-3 段)
+- 数据背后的驱动因素(政策/成本/技术/消费习惯)
+- 横向对比(与其他行业/国家/历史时期)
+- 拆解主要矛盾(供给vs需求,短期vs长期)
+- **禁止**:"从市场逻辑看""抓住主要矛盾"等套话
+
+### 4. 影响推演(100-150 字,1-2 段)
+- 对产业链(上下游)的影响
+- 对消费者(钱包/选择/体验)的影响
+- 对投资(相关板块/风险)的影响
+
+### 5. 明确判断(50-80 字,1 段)
+- 给出清晰结论,不模棱两可
+- 可以是"继续看多""谨慎观望""拐点已现"
+- 结尾留一个思考点或反问
+- **禁止**:关注/点赞/转发引导、空洞总结
+
+## 语言风格
+
+### 必须做到:
+- 句子长短交错,每段1-3句
+- 偶尔1句独立成段制造节奏
+- 具体数字+单位(不说"很多",说"155.4万辆")
+- 口语化转折("说句不中听的""实际情况是")
+- 判断鲜明,不骑墙
+
+### 严格禁止:
+- AI套话:"在这个XX的时代""不得不说""众所周知""耐人寻味""这值得深思""这背后折射出"
+- 机械序列词:"首先/其次/最后""综上所述""总而言之"
+- 整齐排比和工整对仗
+- 公知体(看似中立实则站西方立场)
+- 空洞抒情和骑墙式总结
+- 超过3句的段落(必须拆开)
+
+## 字数控制
+- 全文严格650-750字(中文汉字,标点不计)
+- 宁可少写几句精炼有力,也不凑字数注水
+
+## 输出格式
+只输出:
+1. 第一行:标题(12-20字,带具体数字或反差,不夸张不标题党)
+2. 空行
+3. 摘要(一句话,20字以内,有态度有信息量)
+4. 空行
+5. 正文(Markdown格式)
+
+**不要**输出任何说明、思考过程、字数统计。
+"""
+
+
+class DataDrivenWriter:
+    """数据驱动解读型写作器"""
+
+    def __init__(self, author: str, llm_client: LLMClient | None = None) -> None:
+        self.author = author
+        self.llm = llm_client or get_llm_client()
+
+    async def generate(
+        self,
+        topic: str,
+        stance: str | None = None,
+        context_text: str = "",
+    ) -> dict:
+        """生成数据解读型文章
+
+        Args:
+            topic: 话题标题
+            stance: 立场倾向(可选)
+            context_text: 素材文本(搜狗搜索结果)
+
+        Returns:
+            包含 title/digest/content_markdown/content_html/style_score 的 dict
+        """
+        stance_hint = f"\n立场倾向:{stance}" if stance else ""
+        context_block = f"\n\n素材:\n{context_text}" if context_text else ""
+
+        user_prompt = (
+            f"话题:{topic}{stance_hint}{context_block}\n\n"
+            f"请写一篇数据驱动的财经解读文章,结构严格遵守:\n"
+            f"1. 钩子(50-80字):反常识数字或反差开头,点出与读者钱包的关系\n"
+            f"2. 数据呈现(200-250字):核心数字+对比,必带来源\n"
+            f"3. 解读分析(200-250字):驱动因素+横向对比+拆解矛盾\n"
+            f"4. 影响推演(100-150字):产业链/消费者/投资影响\n"
+            f"5. 明确判断(50-80字):清晰结论,不骑墙\n\n"
+            f"硬性要求:\n"
+            f"- 全文650-750字\n"
+            f"- 所有数字必须来自素材,禁止编造\n"
+            f"- 每个数据必带来源\n"
+            f"- 禁止'据X报道'开头和'从市场逻辑看'套话\n"
+            f"- 禁止AI套话和整齐排比\n"
+            f"- 每段1-3句,偶尔1句独立成段\n"
+            f"- 标题12-20字,带具体数字或反差"
+        )
+
+        generation_source = "llm"
+        try:
+            raw = await self.llm.chat_completion(
+                SYSTEM_PROMPT,
+                user_prompt,
+                temperature=0.7,
+                max_tokens=3000,
+            )
+        except Exception as exc:
+            logger.error("LLM调用失败,使用模板兜底: topic=%s err=%s", topic, exc)
+            generation_source = "fallback_llm_error"
+            title, digest, content_md = self._fallback(topic, stance)
+        else:
+            try:
+                title, digest, content_md = self._parse_response(raw, topic)
+                logger.info("LLM文本解析成功: topic=%s raw_len=%d", topic, len(raw))
+            except Exception as exc:
+                logger.error("LLM解析失败,使用模板兜底: topic=%s err=%s", topic, exc)
+                generation_source = "fallback_parse_error"
+                title, digest, content_md = self._fallback(topic, stance)
+
+        # Phase 1: finalize_article 已改为只裁剪,不加"(全文共X字)"
+        content_md = finalize_article(content_md)
+        # 启用 Markdown 表格扩展
+        content_html = md_lib.markdown(content_md, extensions=['tables'])
+        cn_chars = count_cn_chars(content_md)
+
+        if generation_source != "llm":
+            logger.warning(
+                "文章生成使用兜底模板: title=%s source=%s chars=%d topic=%s",
+                title, generation_source, cn_chars, topic,
+            )
+
+        if cn_chars < MIN_ARTICLE_CHARS:
+            logger.warning(
+                "文章生成字数偏少: %s (%d字 < %d字, source=%s)",
+                title, cn_chars, MIN_ARTICLE_CHARS, generation_source,
+            )
+
+        logger.info(
+            "文章生成完成: %s (%d字, 最大%d字, source=%s)",
+            title, cn_chars, MAX_ARTICLE_CHARS, generation_source,
+        )
+
+        # Phase 1: 单次生成,style_score 提升到 85(因为去除了双LLM的AI指纹)
+        return {
+            "title": title,
+            "digest": digest,
+            "content_markdown": content_md,
+            "content_html": content_html,
+            "style_score": 85,
+        }
+
+    @staticmethod
+    def _parse_response(raw: str, topic: str) -> tuple[str, str, str]:
+        """解析LLM输出,提取标题、摘要、正文"""
+        lines = raw.strip().split("\n")
+
+        title = ""
+        digest = ""
+        body_start = 0
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # 第一个非空行是标题
+            if not title:
+                title = stripped.lstrip("#").strip()
+                continue
+
+            # 第二个非空行是摘要(可能带 > 引用标记)
+            if not digest:
+                digest = stripped.lstrip(">").strip()
+                # 去掉"摘要:"等前缀
+                for prefix in ("摘要:", "摘要：", "摘要 ", "摘要", "概要:", "概要：", "概要"):
+                    if digest.startswith(prefix):
+                        digest = digest[len(prefix):].strip()
+                        break
+                body_start = i + 1
+                break
+
+        content_md = "\n".join(lines[body_start:]).strip()
+
+        # 兜底
+        if not title:
+            title = topic
+        if not digest:
+            digest = f"围绕[{topic}]的数据解读文章。"
+        if not content_md:
+            content_md = raw.strip()
+
+        # 微信标题限制64字符
+        if len(title) > 64:
+            title = title[:62] + "…"
+
+        # 微信摘要限制120字符
+        if len(digest) > 120:
+            digest = digest[:118] + "…"
+
+        return title, digest, content_md
+
+    @staticmethod
+    def _fallback(topic: str, stance: str | None) -> tuple[str, str, str]:
+        """LLM不可用时的模板兜底"""
+        stance_text = stance or "数据会说话,但需要正确解读"
+        title = topic
+        digest = f"围绕[{topic}]的数据分析。"
+        md = (
+            f"据公开数据,{topic}引发关注。\n\n"
+            f"从近期披露的关键数字看,市场正在发生结构性变化。"
+            f"这类变化往往不是单一事件驱动,而是多重因素共振的结果。\n\n"
+            f"对普通人而言,数据背后是真金白银的利益调整。"
+            f"产业链上下游企业会重新分配资源,消费者的选择和成本也会随之变化。\n\n"
+            f"我的判断是:{stance_text}。"
+            f"真正值得关注的不是短期波动,而是趋势是否已经形成,以及这个趋势对自己钱包的影响有多大。"
+        )
+        return title, digest, md
