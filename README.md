@@ -85,8 +85,9 @@ curl -X POST http://localhost:8000/api/v1/articles/preview \
 ## 📦 核心功能
 
 ### 1. 自动发布(定时任务)
-- **财经模块**: 每天早上 7:30 自动发布 1 篇财经数据解读
-- **可配置**: 在 `app/tasks/scheduler.py` 中修改时间/频率
+- **默认财经模块**: 每天早上 7:30 自动发布 1 篇财经数据解读
+- **娱乐模块已内置**: 需要时设置 `ACTIVE_MODULE=entertainment` 后重启
+- **可配置**: 在各模块 `config.py` 的 `SCHEDULE_SLOTS` 中修改时间/频率
 
 ### 2. 手动发布(API)
 ```bash
@@ -112,8 +113,8 @@ from app.services.pipeline import ArticlePipeline
 pipeline = ArticlePipeline("finance")
 await pipeline.run_batch("morning", count=1)
 
-# 娱乐模块(需先实现)
-# pipeline = ArticlePipeline("entertainment")
+# 娱乐模块
+pipeline = ArticlePipeline("entertainment")
 ```
 
 ---
@@ -122,6 +123,7 @@ await pipeline.run_batch("morning", count=1)
 
 ### 当前模块
 - ✅ **财经模块** (`finance`): 数据驱动解读型,每天 7:30 发 1 篇
+- ✅ **娱乐模块** (`entertainment`): 影视/明星/综艺评论,默认不启用
 
 ### 如何新增模块
 完整步骤见 `GUIDE.md → 模块扩展指南`
@@ -183,11 +185,9 @@ MYSQL_DSN=mysql+pymysql://user:pass@localhost:3306/autowz
 MODULE_NAME = "finance"
 AUTHOR = "现象观察"
 
-SCHEDULE_CONFIG = {
-    "cron_hour": 7,
-    "cron_minute": 30,
-    "daily_count": 1,
-}
+SCHEDULE_SLOTS = [
+    ScheduleSlot(hour=7, minute=30, batch_type="daily", count=1),
+]
 
 WRITER_CONFIG = {
     "min_chars": 650,

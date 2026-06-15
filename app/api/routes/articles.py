@@ -76,8 +76,8 @@ async def get_article(article_id: int):
 
 @router.post("/batch/{batch_type}")
 async def run_batch(batch_type: str = "morning"):
-    """手动触发批次任务（morning/noon/evening）。"""
-    if batch_type not in ("morning", "noon", "evening"):
-        raise HTTPException(status_code=400, detail="batch_type 必须是 morning/noon/evening")
+    """手动触发批次任务（daily/morning/noon/evening）。"""
+    if batch_type not in ("daily", "morning", "noon", "evening"):
+        raise HTTPException(status_code=400, detail="batch_type 必须是 daily/morning/noon/evening")
     results = await pipeline.run_batch(batch_type)
     return {"batch_type": batch_type, "results": results}

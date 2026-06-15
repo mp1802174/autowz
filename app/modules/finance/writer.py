@@ -18,17 +18,20 @@ from app.services.llm.client import LLMClient, get_llm_client
 logger = logging.getLogger("autowz.finance.writer")
 
 # 数据驱动解读型 prompt
-SYSTEM_PROMPT = """你是"现象观察"财经观察机构的数据分析师,为微信公众号撰写财经数据解读文章。
+SYSTEM_PROMPT_TEMPLATE = """你是"现象观察"财经观察机构的数据分析师,为微信公众号撰写财经数据解读文章。
 
 ## 核心定位
 不做新闻搬运工,做数据翻译官。用数据说话,把冰冷的数字转化为对读者钱包和生计有意义的洞察。
 
 ## 写作结构(严格遵守)
 
-### 1. 钩子开头(50-80 字,1-2 段)
-- 第一句:用反常识数字或反差制造冲击("5月新能源车销量占比首次破56%,传统燃油车真的只剩4成了")
-- 快速点出"这和读者的关系"(购车成本/投资机会/就业形势)
-- **禁止**:"据XX报道"开头、背景铺垫、概念解释
+### 1. 事实开头(60-100 字,1-2 段)
+- 第一段必须先交代"事实式来源 + 新闻事实 + 和读者的关系"
+- 可用表达:"公开信息显示""市场数据显示""公司公告显示""交易所披露信息显示""从已披露信息看"
+- 第一段不要只抛观点,必须让读者知道文章依据哪件事/哪组数据
+- 第二句快速点出"这和读者的关系"(存款/理财/购车成本/投资机会/就业形势)
+- **禁止**:"据XX报道""根据XX报道""XX网报道""消息称"开头、背景铺垫、概念解释
+- 示例:"公开信息显示,近期多家银行下调存款利率。对普通家庭来说,这不只是银行的一次调整,而是现金、理财和房贷都要重新算账的信号。"
 
 ### 2. 数据呈现(200-250 字,2-3 段)
 - 核心数据 + 同比/环比/历史对比
@@ -63,6 +66,8 @@ SYSTEM_PROMPT = """你是"现象观察"财经观察机构的数据分析师,为�
 - 判断鲜明,不骑墙
 
 ### 严格禁止:
+- 转载稿口吻:"据XX报道""根据XX报道""XX网报道""消息称"。需要交代来源时,改写成"公开信息显示""数据显示""材料显示"。
+- 不能完全省略新闻事实和信息来源,否则文章会显得突兀。
 - AI套话:"在这个XX的时代""不得不说""众所周知""耐人寻味""这值得深思""这背后折射出"
 - 机械序列词:"首先/其次/最后""综上所述""总而言之"
 - 整齐排比和工整对仗
@@ -71,7 +76,7 @@ SYSTEM_PROMPT = """你是"现象观察"财经观察机构的数据分析师,为�
 - 超过3句的段落(必须拆开)
 
 ## 字数控制
-- 全文严格650-750字(中文汉字,标点不计)
+- 全文严格{min_chars}-{max_chars}字(中文汉字,标点不计)
 - 宁可少写几句精炼有力,也不凑字数注水
 
 ## 输出格式
@@ -89,9 +94,25 @@ SYSTEM_PROMPT = """你是"现象观察"财经观察机构的数据分析师,为�
 class DataDrivenWriter:
     """数据驱动解读型写作器"""
 
-    def __init__(self, author: str, llm_client: LLMClient | None = None) -> None:
+    def __init__(
+        self,
+        author: str,
+        llm_client: LLMClient | None = None,
+        *,
+        min_chars: int = MIN_ARTICLE_CHARS,
+        max_chars: int = MAX_ARTICLE_CHARS,
+        temperature: float = 0.7,
+        **_: object,
+    ) -> None:
         self.author = author
         self.llm = llm_client or get_llm_client()
+        self.min_chars = min_chars
+        self.max_chars = max_chars
+        self.temperature = temperature
+        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+            min_chars=min_chars,
+            max_chars=max_chars,
+        )
 
     async def generate(
         self,
@@ -115,16 +136,19 @@ class DataDrivenWriter:
         user_prompt = (
             f"话题:{topic}{stance_hint}{context_block}\n\n"
             f"请写一篇数据驱动的财经解读文章,结构严格遵守:\n"
-            f"1. 钩子(50-80字):反常识数字或反差开头,点出与读者钱包的关系\n"
+            f"1. 事实开头(60-100字):用'公开信息显示/市场数据显示/公司公告显示/从已披露信息看'交代新闻事实,再点出与读者钱包的关系\n"
             f"2. 数据呈现(200-250字):核心数字+对比,必带来源\n"
             f"3. 解读分析(200-250字):驱动因素+横向对比+拆解矛盾\n"
             f"4. 影响推演(100-150字):产业链/消费者/投资影响\n"
             f"5. 明确判断(50-80字):清晰结论,不骑墙\n\n"
             f"硬性要求:\n"
-            f"- 全文650-750字\n"
+            f"- 全文{self.min_chars}-{self.max_chars}字\n"
+            f"- 第一段必须有事实式来源和新闻事实,不能直接空降观点\n"
             f"- 所有数字必须来自素材,禁止编造\n"
             f"- 每个数据必带来源\n"
-            f"- 禁止'据X报道'开头和'从市场逻辑看'套话\n"
+            f"- 禁止'据X报道'、'根据X报道'、'X网报道'、'消息称'等转载稿口吻\n"
+            f"- 需要交代来源时,用'公开信息显示'、'数据显示'、'材料显示'\n"
+            f"- 禁止'从市场逻辑看'套话\n"
             f"- 禁止AI套话和整齐排比\n"
             f"- 每段1-3句,偶尔1句独立成段\n"
             f"- 标题12-20字,带具体数字或反差"
@@ -133,9 +157,9 @@ class DataDrivenWriter:
         generation_source = "llm"
         try:
             raw = await self.llm.chat_completion(
-                SYSTEM_PROMPT,
+                self.system_prompt,
                 user_prompt,
-                temperature=0.7,
+                temperature=self.temperature,
                 max_tokens=3000,
             )
         except Exception as exc:
@@ -152,7 +176,7 @@ class DataDrivenWriter:
                 title, digest, content_md = self._fallback(topic, stance)
 
         # Phase 1: finalize_article 已改为只裁剪,不加"(全文共X字)"
-        content_md = finalize_article(content_md)
+        content_md = finalize_article(content_md, max_chars=self.max_chars)
         # 启用 Markdown 表格扩展
         content_html = md_lib.markdown(content_md, extensions=['tables'])
         cn_chars = count_cn_chars(content_md)
@@ -163,15 +187,15 @@ class DataDrivenWriter:
                 title, generation_source, cn_chars, topic,
             )
 
-        if cn_chars < MIN_ARTICLE_CHARS:
+        if cn_chars < self.min_chars:
             logger.warning(
                 "文章生成字数偏少: %s (%d字 < %d字, source=%s)",
-                title, cn_chars, MIN_ARTICLE_CHARS, generation_source,
+                title, cn_chars, self.min_chars, generation_source,
             )
 
         logger.info(
             "文章生成完成: %s (%d字, 最大%d字, source=%s)",
-            title, cn_chars, MAX_ARTICLE_CHARS, generation_source,
+            title, cn_chars, self.max_chars, generation_source,
         )
 
         # Phase 1: 单次生成,style_score 提升到 85(因为去除了双LLM的AI指纹)
@@ -240,8 +264,8 @@ class DataDrivenWriter:
         title = topic
         digest = f"围绕[{topic}]的数据分析。"
         md = (
-            f"据公开数据,{topic}引发关注。\n\n"
-            f"从近期披露的关键数字看,市场正在发生结构性变化。"
+            f"公开信息显示,{topic}正在引发市场关注。对普通家庭来说,这件事真正影响的不是新闻本身,而是现金、理财和消费决策都要重新算一遍。\n\n"
+            f"从已披露的关键数字看,市场正在发生结构性变化。"
             f"这类变化往往不是单一事件驱动,而是多重因素共振的结果。\n\n"
             f"对普通人而言,数据背后是真金白银的利益调整。"
             f"产业链上下游企业会重新分配资源,消费者的选择和成本也会随之变化。\n\n"

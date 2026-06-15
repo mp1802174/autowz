@@ -1,8 +1,8 @@
 """文章生产管道(向后兼容旧API)
 
-Phase 1 重构说明:
-- 底层改为模块化架构(app/modules/),支持多套独立内容配方
-- 默认使用 FinanceModule(财经数据解读型)
+模块化说明:
+- 底层使用 app/modules/ 内容模块，支持多套独立内容配方
+- 默认模块读取 ACTIVE_MODULE；配置默认值为 entertainment
 - 保留旧 API 接口,内部委托给模块实现
 
 未来扩展:
@@ -65,11 +65,13 @@ class ArticlePipeline:
     保留旧 API 接口,方便平滑迁移。
     """
 
-    def __init__(self, module_name: str = "finance") -> None:
+    def __init__(self, module_name: str | None = None) -> None:
         self.settings = get_settings()
         self.module = get_module(module_name)
 
         # 向后兼容:暴露底层服务(某些路由可能直接访问)
+        self.writer = getattr(self.module, "writer", None)
+        self.selector = getattr(self.module, "selector", None)
         self.guard = GuardService()
         self.wechat = WechatPublishOrchestrator()
         self.news = NewsCollector()

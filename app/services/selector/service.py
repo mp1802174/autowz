@@ -126,8 +126,18 @@ BLACKLIST_KEYWORDS = [
 
 
 class TopicSelectorService:
-    def __init__(self, llm_client: LLMClient | None = None) -> None:
+    def __init__(
+        self,
+        llm_client: LLMClient | None = None,
+        *,
+        priority_keywords: dict[str, list[str]] | None = None,
+        downrank_keywords: list[str] | None = None,
+        blacklist_keywords: list[str] | None = None,
+    ) -> None:
         self.llm = llm_client or get_llm_client()
+        self.priority_keywords = priority_keywords or PRIORITY_KEYWORDS
+        self.downrank_keywords = downrank_keywords if downrank_keywords is not None else DOWNRANK_KEYWORDS
+        self.blacklist_keywords = blacklist_keywords if blacklist_keywords is not None else BLACKLIST_KEYWORDS
 
     async def select(
         self, news_items: list[NewsItem], *, short_count: int = 2, long_count: int = 0,
@@ -203,38 +213,43 @@ class TopicSelectorService:
             logger.error("LLM 选题失败，回退到关键词优先模式: %s", exc)
             return self._fallback_select(news_items, short_count, long_count)
 
-    @classmethod
-    def _priority_score(cls, item: NewsItem) -> tuple[int, int]:
+    def _priority_score(self, item: NewsItem) -> tuple[int, int]:
         text = f"{item.title} {item.description}".lower()
         score = 0
 
-        if any(k in text for k in PRIORITY_KEYWORDS["finance"]):
-            score += 60  # OPTIMIZE: 财经权重60分
-        if any(k in text for k in PRIORITY_KEYWORDS["leaders"]):
-            score += 20
-        if any(k in text for k in PRIORITY_KEYWORDS["livelihood"]):
-            score += 15
-        if any(k in text for k in DOWNRANK_KEYWORDS):
+        # 默认财经模块保留原来的权重；新模块可只配置自己的 priority_keywords。
+        for group, keywords in self.priority_keywords.items():
+            if not any(k in text for k in keywords):
+                continue
+            if group == "finance":
+                score += 60
+            elif group == "leaders":
+                score += 20
+            elif group == "livelihood":
+                score += 15
+            else:
+                score += 60
+
+        if any(k in text for k in self.downrank_keywords):
             score -= 25
 
         return score, -len(item.title)
 
-    @classmethod
     def _fallback_select(
-        cls, news_items: list[NewsItem], short_count: int, long_count: int,
+        self, news_items: list[NewsItem], short_count: int, long_count: int,
     ) -> dict[str, list[NewsItem]]:
         """LLM 不可用时的兜底选题：按关键词优先级排序后取前 N 条。"""
         # OPTIMIZE: 黑名单过滤
         filtered = []
         for item in news_items:
             text = f"{item.title} {item.description or ''}".lower()
-            if any(k in text for k in BLACKLIST_KEYWORDS):
+            if any(k in text for k in self.blacklist_keywords):
                 continue
             filtered.append(item)
 
         ranked = sorted(
             filtered,
-            key=lambda item: cls._priority_score(item),
+            key=lambda item: self._priority_score(item),
             reverse=True,
         )
         total = short_count + long_count

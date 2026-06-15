@@ -3,6 +3,8 @@
 数据驱动型财经内容模块的所有配置参数。
 """
 
+from app.modules.base import ScheduleSlot
+
 # 模块基础信息
 MODULE_NAME = "finance"
 DISPLAY_NAME = "财经观察"
@@ -34,17 +36,15 @@ SELECTOR_CONFIG = {
 WRITER_CONFIG = {
     "min_chars": 650,
     "max_chars": 750,
+    "temperature": 0.7,
     "style": "data_driven_analysis",
     "structure": "hook-data-analysis-impact-conclusion",
 }
 
 # 调度配置
-SCHEDULE_CONFIG = {
-    "enabled": True,
-    "cron_hour": 7,      # 每天 7:30
-    "cron_minute": 30,
-    "daily_count": 1,    # 每天 1 篇
-}
+SCHEDULE_SLOTS = [
+    ScheduleSlot(hour=7, minute=30, batch_type="daily", count=1),
+]
 
 # 数据源配置(暂未实现,Phase 2)
 DATA_SOURCES = [

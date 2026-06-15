@@ -91,9 +91,12 @@ from app.services.pipeline import ArticlePipeline
 pipeline = ArticlePipeline("finance")
 await pipeline.run_batch("morning", 1)
 
-# 娱乐模块(需先实现)
+# 娱乐模块
 pipeline = ArticlePipeline("entertainment")
 await pipeline.run_batch("afternoon", 1)
+
+# 不传参数时读取 ACTIVE_MODULE；默认 finance
+pipeline = ArticlePipeline()
 ```
 
 ---
@@ -122,6 +125,9 @@ MYSQL_DSN=mysql+pymysql://root:1c8034bf4061cbd6@localhost:3306/autowz?charset=ut
 
 # 作者署名(可选)
 CONTENT_AUTHOR=现象观察
+
+# 当前启用模块；默认 finance。可选 finance / entertainment
+ACTIVE_MODULE=finance
 
 # 评论设置(可选)
 DEFAULT_COMMENT_OPEN=1          # 默认开启评论
@@ -153,39 +159,31 @@ SELECTOR_CONFIG = {
 WRITER_CONFIG = {
     "min_chars": 650,
     "max_chars": 750,
+    "temperature": 0.7,
     "style": "data_driven_analysis",
     "structure": "hook-data-analysis-impact-conclusion",
 }
 
 # 调度配置
-SCHEDULE_CONFIG = {
-    "enabled": True,
-    "cron_hour": 7,
-    "cron_minute": 30,
-    "daily_count": 1,
-}
+SCHEDULE_SLOTS = [
+    ScheduleSlot(hour=7, minute=30, batch_type="daily", count=1),
+]
 ```
 
 ### 2.3 定时任务配置
 
-在 `app/tasks/scheduler.py` 中配置:
+在各模块 `config.py` 的 `SCHEDULE_SLOTS` 中配置。调度器只注册 `ACTIVE_MODULE` 对应模块的任务:
 
 ```python
 # 财经模块: 每天早上 7:30
-scheduler.add_job(
-    _job_batch,
-    CronTrigger(hour=7, minute=30),
-    args=["morning", 1, "finance"],
-    id="finance_daily_batch",
-)
+SCHEDULE_SLOTS = [
+    ScheduleSlot(hour=7, minute=30, batch_type="daily", count=1),
+]
 
-# 娱乐模块: 每天下午 13:00(需先实现)
-# scheduler.add_job(
-#     _job_batch,
-#     CronTrigger(hour=13, minute=0),
-#     args=["entertainment", 1],
-#     id="entertainment_daily_batch",
-# )
+# 娱乐模块: 每天下午 16:20
+SCHEDULE_SLOTS = [
+    ScheduleSlot(hour=16, minute=20, batch_type="daily", count=1),
+]
 ```
 
 ---
@@ -217,12 +215,9 @@ WRITER_CONFIG = {
     "style": "emotional_resonance",
 }
 
-SCHEDULE_CONFIG = {
-    "enabled": True,
-    "cron_hour": 13,
-    "cron_minute": 0,
-    "daily_count": 1,
-}
+SCHEDULE_SLOTS = [
+    ScheduleSlot(hour=13, minute=0, batch_type="daily", count=1),
+]
 ```
 
 #### 步骤3: 创建 Writer (writer.py)
@@ -386,7 +381,7 @@ GET /api/v1/scheduler/status
 ```json
 [
   {
-    "id": "finance_daily_batch",
+    "id": "batch_finance_daily",
     "next_run_time": "2026-06-15 07:30:00",
     "trigger": "cron[hour='7', minute='30']"
   }

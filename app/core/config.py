@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     app_env: str = Field(default="dev", alias="APP_ENV")
     app_debug: bool = Field(default=True, alias="APP_DEBUG")
     api_prefix: str = Field(default="/api/v1", alias="API_PREFIX")
+    active_module: str = Field(default="entertainment", alias="ACTIVE_MODULE")
 
     content_author: str = Field(default="", alias="CONTENT_AUTHOR")  # 改为空,不显示作者名
     default_comment_open: int = Field(default=1, alias="DEFAULT_COMMENT_OPEN")
@@ -45,4 +46,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

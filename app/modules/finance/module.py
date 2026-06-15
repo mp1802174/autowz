@@ -21,6 +21,7 @@ from app.modules.finance.config import (
     AUTHOR,
     DISPLAY_NAME,
     MODULE_NAME,
+    SCHEDULE_SLOTS,
     SELECTOR_CONFIG,
     WRITER_CONFIG,
 )
@@ -75,8 +76,12 @@ class FinanceModule(BaseContentModule):
     def __init__(self) -> None:
         self.settings = get_settings()
         self.collector = NewsCollector()
-        self.selector = TopicSelectorService()
-        self.writer = DataDrivenWriter(author=AUTHOR)
+        self.selector = TopicSelectorService(
+            priority_keywords=SELECTOR_CONFIG.get("priority_keywords"),
+            downrank_keywords=SELECTOR_CONFIG.get("downrank_keywords"),
+            blacklist_keywords=SELECTOR_CONFIG.get("blacklist_keywords"),
+        )
+        self.writer = DataDrivenWriter(author=AUTHOR, **WRITER_CONFIG)
         self.guard = GuardService()
         self.wechat = WechatPublishOrchestrator()
 
@@ -91,6 +96,10 @@ class FinanceModule(BaseContentModule):
     @property
     def author(self) -> str:
         return AUTHOR
+
+    @property
+    def schedule_slots(self):
+        return SCHEDULE_SLOTS
 
     async def collect_topics(self) -> List[NewsItem]:
         """采集财经新闻池"""

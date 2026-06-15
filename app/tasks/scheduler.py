@@ -18,6 +18,7 @@ def get_scheduler() -> AsyncIOScheduler:
 async def _job_collect():
     """定时任务：采集热点。"""
     from app.services.pipeline import ArticlePipeline
+
     logger.info("定时任务: 开始采集热点")
     pipeline = ArticlePipeline()
     try:
@@ -27,21 +28,23 @@ async def _job_collect():
         logger.error("定时采集失败: %s", exc)
 
 
-async def _job_batch(batch_type: str, count: int = 1, category: str = None):
-    """定时任务：执行批次。"""
+async def _job_batch(batch_type: str, count: int = 1, module_name: str | None = None):
+    """定时任务：执行模块批次。"""
     from app.services.pipeline import ArticlePipeline
-    logger.info("定时任务: 开始批次 %s", batch_type)
-    pipeline = ArticlePipeline()
+
+    logger.info("定时任务: 开始批次 %s module=%s count=%s", batch_type, module_name, count)
+    pipeline = ArticlePipeline(module_name)
     try:
-        results = await pipeline.run_batch(batch_type, count=count, category=category)
-        logger.info("批次 %s 完成: %d 篇", batch_type, len(results))
+        results = await pipeline.run_batch(batch_type, count=count)
+        logger.info("批次 %s/%s 完成: %d 篇", module_name, batch_type, len(results))
     except Exception as exc:
-        logger.error("批次 %s 失败: %s", batch_type, exc)
+        logger.error("批次 %s/%s 失败: %s", module_name, batch_type, exc)
 
 
 async def _job_sync_published():
     """定时任务：同步公众号「已发布」列表到本地，供导读区块使用。"""
     from app.services.wechat.publish_sync import sync_published_articles
+
     logger.info("定时任务: 同步公众号已发布文章")
     try:
         result = await sync_published_articles()
@@ -56,31 +59,51 @@ async def _job_sync_published():
 def init_scheduler() -> AsyncIOScheduler:
     """初始化并启动定时调度器。
 
-    Phase 1 改动: 每天只发 1 篇(早间),改为 7:30 避开整点。
+    发文任务来自 ACTIVE_MODULE 对应模块的 schedule_slots。
+    默认 ACTIVE_MODULE=entertainment，因此当前默认跑娱乐模块。
     """
+    from app.modules.registry import get_module, resolve_module_name
+
     scheduler = get_scheduler()
 
     # 热点采集:每30分钟
     scheduler.add_job(
-        _job_collect, CronTrigger(minute="*/30"),
-        id="collect_hot_topics", replace_existing=True,
-    )
-
-    # Phase 1: 每天只发 1 篇财经精品(早间 7:30)
-    scheduler.add_job(
-        _job_batch, CronTrigger(hour=7, minute=30),
-        args=["morning", 1, "finance"],
-        id="finance_daily_batch",
+        _job_collect,
+        CronTrigger(minute="*/30"),
+        id="collect_hot_topics",
         replace_existing=True,
     )
 
+    module_name = resolve_module_name()
+    module = get_module(module_name)
+    for slot in module.schedule_slots:
+        job_id = f"batch_{module_name}_{slot.batch_type}"
+        scheduler.add_job(
+            _job_batch,
+            CronTrigger(hour=slot.hour, minute=slot.minute),
+            args=[slot.batch_type, slot.count, module_name],
+            id=job_id,
+            replace_existing=True,
+        )
+        logger.info(
+            "注册模块定时任务: id=%s module=%s time=%02d:%02d count=%d",
+            job_id,
+            module_name,
+            slot.hour,
+            slot.minute,
+            slot.count,
+        )
+
     # 公众号已发布文章同步:每日 03:17(避开整点降低风控,凌晨流量低)
     scheduler.add_job(
-        _job_sync_published, CronTrigger(hour=3, minute=17),
-        id="sync_published_articles", replace_existing=True,
+        _job_sync_published,
+        CronTrigger(hour=3, minute=17),
+        id="sync_published_articles",
+        replace_existing=True,
     )
 
-    scheduler.start()
+    if not scheduler.running:
+        scheduler.start()
     jobs = scheduler.get_jobs()
     logger.info("调度器已启动,共 %d 个定时任务", len(jobs))
     for job in jobs:

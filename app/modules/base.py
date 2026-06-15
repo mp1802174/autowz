@@ -5,9 +5,23 @@
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import List
 
 from app.services.collector.search import NewsItem
+
+
+@dataclass(frozen=True)
+class ScheduleSlot:
+    """模块定时发布配置。
+
+    一个模块可以有多个定时批次；count 统一在这里配置，调度器只读取这里。
+    """
+
+    hour: int
+    minute: int
+    batch_type: str
+    count: int = 1
 
 
 class BaseContentModule(ABC):
@@ -35,6 +49,12 @@ class BaseContentModule(ABC):
     @abstractmethod
     def author(self) -> str:
         """作者署名(如 '现象观察', '吃瓜群众')"""
+        pass
+
+    @property
+    @abstractmethod
+    def schedule_slots(self) -> list[ScheduleSlot]:
+        """模块定时任务配置"""
         pass
 
     @abstractmethod

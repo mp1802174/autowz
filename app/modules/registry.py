@@ -1,50 +1,49 @@
-"""模块注册表
+"""内容模块注册表。"""
 
-所有内容模块的注册中心。新增模块时在这里注册即可。
-"""
+from collections.abc import Callable
 
-from typing import Dict, Type
-
+from app.core.config import get_settings
 from app.modules.base import BaseContentModule
 
+ModuleFactory = Callable[[], type[BaseContentModule]]
 
-# 延迟导入,避免循环依赖
-def _get_finance_module():
+
+def _get_finance_module() -> type[BaseContentModule]:
     from app.modules.finance.module import FinanceModule
     return FinanceModule
 
 
-# 模块注册表
-MODULE_REGISTRY: Dict[str, Type[BaseContentModule]] = {
+def _get_entertainment_module() -> type[BaseContentModule]:
+    from app.modules.entertainment.module import EntertainmentModule
+    return EntertainmentModule
+
+
+MODULE_REGISTRY: dict[str, ModuleFactory] = {
     "finance": _get_finance_module,
-    # 未来扩展:
-    # "entertainment": _get_entertainment_module,
-    # "video": _get_video_module,
+    "entertainment": _get_entertainment_module,
 }
 
 
-def get_module(name: str) -> BaseContentModule:
-    """根据模块名获取模块实例
-
-    Args:
-        name: 模块名(如 'finance', 'entertainment')
-
-    Returns:
-        模块实例
-
-    Raises:
-        KeyError: 模块不存在
-    """
-    if name not in MODULE_REGISTRY:
-        raise KeyError(f"模块 '{name}' 不存在,可用模块: {list(MODULE_REGISTRY.keys())}")
-
-    module_class = MODULE_REGISTRY[name]
-    if callable(module_class):
-        # 延迟导入的工厂函数
-        module_class = module_class()
-    return module_class()
-
-
 def list_modules() -> list[str]:
-    """列出所有已注册模块"""
+    """列出所有已注册模块。"""
     return list(MODULE_REGISTRY.keys())
+
+
+def resolve_module_name(name: str | None = None) -> str:
+    """解析模块名。
+
+    name 为 None 时读取 ACTIVE_MODULE；默认值在配置里是 entertainment。
+    写错模块名直接报错，避免静默跑错模块。
+    """
+    module_name = (name or get_settings().active_module or "finance").strip().lower()
+    if module_name not in MODULE_REGISTRY:
+        available = ", ".join(list_modules())
+        raise ValueError(f"未知内容模块: {module_name}. 可用模块: {available}")
+    return module_name
+
+
+def get_module(name: str | None = None) -> BaseContentModule:
+    """根据模块名获取模块实例；name=None 时使用 ACTIVE_MODULE。"""
+    module_name = resolve_module_name(name)
+    module_class = MODULE_REGISTRY[module_name]()
+    return module_class()
