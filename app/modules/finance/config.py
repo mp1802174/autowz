@@ -36,7 +36,9 @@ SELECTOR_CONFIG = {
 WRITER_CONFIG = {
     "min_chars": 650,
     "max_chars": 750,
-    "temperature": 0.7,
+    "temperature": 0.85,
+    "frequency_penalty": 0.3,
+    "presence_penalty": 0.2,
     "style": "data_driven_analysis",
     "structure": "hook-data-analysis-impact-conclusion",
 }

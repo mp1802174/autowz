@@ -66,6 +66,8 @@ class EntertainmentWriter:
         min_chars: int = 650,
         max_chars: int = 800,
         temperature: float = 0.7,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
         **_: object,
     ) -> None:
         self.author = author
@@ -73,6 +75,8 @@ class EntertainmentWriter:
         self.min_chars = min_chars
         self.max_chars = max_chars
         self.temperature = temperature
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
         self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             min_chars=min_chars,
             max_chars=max_chars,
@@ -97,9 +101,10 @@ class EntertainmentWriter:
             f"- 开头禁止'据X报道'、'X网报道'\n"
             f"- 正文避免'根据X报道'、'消息称'等转载稿口吻\n"
             f"- 不造谣，不扩写未证实隐私\n"
+            f"- 禁止出现素材中没有的具体数字(票房/收视/播放量/片酬/年龄/百分比),没有确切来源就用'多平台''大量''明显'等模糊表述\n"
             f"- 不要财经政治理论腔，不要古文典故\n"
             f"- 每段1-3句，口语化，有态度\n"
-            f"- 标题12-24字，有看点但不标题党"
+            f"- 标题12-24字，句式不要套路化:疑问/悬念/反差/直陈中挑最贴切的一种,别每篇都同一个模板,不标题党"
         )
 
         generation_source = "llm"
@@ -109,6 +114,8 @@ class EntertainmentWriter:
                 user_prompt,
                 temperature=self.temperature,
                 max_tokens=3000,
+                frequency_penalty=self.frequency_penalty,
+                presence_penalty=self.presence_penalty,
             )
         except Exception as exc:
             logger.error("娱乐 LLM 调用失败，使用模板兜底: topic=%s err=%s", topic, exc)

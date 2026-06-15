@@ -102,6 +102,8 @@ class DataDrivenWriter:
         min_chars: int = MIN_ARTICLE_CHARS,
         max_chars: int = MAX_ARTICLE_CHARS,
         temperature: float = 0.7,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
         **_: object,
     ) -> None:
         self.author = author
@@ -109,6 +111,8 @@ class DataDrivenWriter:
         self.min_chars = min_chars
         self.max_chars = max_chars
         self.temperature = temperature
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
         self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
             min_chars=min_chars,
             max_chars=max_chars,
@@ -144,14 +148,14 @@ class DataDrivenWriter:
             f"硬性要求:\n"
             f"- 全文{self.min_chars}-{self.max_chars}字\n"
             f"- 第一段必须有事实式来源和新闻事实,不能直接空降观点\n"
-            f"- 所有数字必须来自素材,禁止编造\n"
+            f"- 所有数字必须来自素材,禁止编造;素材里没有的数字(销量/百分比/金额/排名/同比环比)一律不写,宁可用'多数''明显''大幅'等模糊表述\n"
             f"- 每个数据必带来源\n"
             f"- 禁止'据X报道'、'根据X报道'、'X网报道'、'消息称'等转载稿口吻\n"
             f"- 需要交代来源时,用'公开信息显示'、'数据显示'、'材料显示'\n"
             f"- 禁止'从市场逻辑看'套话\n"
             f"- 禁止AI套话和整齐排比\n"
             f"- 每段1-3句,偶尔1句独立成段\n"
-            f"- 标题12-20字,带具体数字或反差"
+            f"- 标题12-20字,句式不要每篇雷同(数字/反差/疑问/直陈轮换挑最贴切的一种),不标题党"
         )
 
         generation_source = "llm"
@@ -161,6 +165,8 @@ class DataDrivenWriter:
                 user_prompt,
                 temperature=self.temperature,
                 max_tokens=3000,
+                frequency_penalty=self.frequency_penalty,
+                presence_penalty=self.presence_penalty,
             )
         except Exception as exc:
             logger.error("LLM调用失败,使用模板兜底: topic=%s err=%s", topic, exc)

@@ -32,7 +32,9 @@ SELECTOR_CONFIG = {
 WRITER_CONFIG = {
     "min_chars": 650,
     "max_chars": 800,
-    "temperature": 0.7,
+    "temperature": 0.85,
+    "frequency_penalty": 0.3,
+    "presence_penalty": 0.2,
 }
 
 # 先建立娱乐模块但默认不启用；只有 ACTIVE_MODULE=entertainment 或显式 ArticlePipeline("entertainment") 才会用。

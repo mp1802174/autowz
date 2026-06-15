@@ -28,24 +28,35 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: int = 4096,
         model: str | None = None,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
     ) -> str:
-        """调用 LLM 生成文本，内置重试机制。"""
+        """调用 LLM 生成文本，内置重试机制。
+
+        frequency_penalty/presence_penalty 用于降低用词重复、提升多样性；
+        仅在 > 0 时传给后端，避免给不支持该参数的代理发送。
+        """
         model = model or self.default_model
         last_error: Exception | None = None
 
         for attempt in range(3):
             try:
                 # 使用 stream 模式，因为部分 API 代理在非流式模式下不返回 content
-                stream = await self.client.chat.completions.create(
-                    model=model,
-                    messages=[
+                create_kwargs: dict = {
+                    "model": model,
+                    "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt},
                     ],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    stream=True,
-                )
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True,
+                }
+                if frequency_penalty:
+                    create_kwargs["frequency_penalty"] = frequency_penalty
+                if presence_penalty:
+                    create_kwargs["presence_penalty"] = presence_penalty
+                stream = await self.client.chat.completions.create(**create_kwargs)
                 chunks: list[str] = []
                 async for chunk in stream:
                     if chunk.choices and chunk.choices[0].delta.content:
