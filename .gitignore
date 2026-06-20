@@ -22,3 +22,7 @@ media/
 tmp_*
 temp_*
 .env.*
+
+# 发布渠道登录态(含登录凭证,绝不入库)
+app/services/publish/cookies/*_state.json
+app/services/publish/cookies/*.cookies

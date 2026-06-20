@@ -9,6 +9,13 @@
 - 可新增 EntertainmentModule/VideoModule 等,切换 module_name 即可
 """
 
+# ⚠️ 项目第一纲领(不可违背 —— 换任何开发者/维护者/AI 都须第一时间遵循):
+#    质量第一,质量低不如不做。本项目的生存前提,是产出"有真实信息增量、
+#    读起来不像机器"的高质量内容;宁可少发、不发,也不发低质内容。
+#    走质量路线,不走规避路线 —— 目标是"标了 AI 也不掉流量、被检测也不算
+#    低质",而非赌平台检测不到。任何为数量/效率/规避而牺牲质量的改动,
+#    都违背项目根本目标。详见 README 顶部纲领 与 GUIDE.md §8.3。
+
 import logging
 import re
 from datetime import date
