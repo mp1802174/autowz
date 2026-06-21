@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -8,7 +8,7 @@ class TopicCandidate(BaseModel):
     source: str
     hot_score: float = Field(default=0, ge=0)
     summary: str = ""
-    source_url: HttpUrl | None = None
+    source_url: Optional[HttpUrl] = None
 
 
 class ArticlePreviewRequest(BaseModel):
@@ -27,7 +27,7 @@ class ArticlePreviewResponse(BaseModel):
 
 class PublishArticleRequest(BaseModel):
     topic: str
-    source_url: HttpUrl | None = None
+    source_url: Optional[HttpUrl] = None
     cover_image_path: Optional[str] = None
     stance: Optional[str] = None
 

@@ -9,7 +9,7 @@ from app.services.content_length import (
     finalize_article,
 )
 from app.services.llm.client import LLMClient, get_llm_client
-from typing import Optional
+from typing import Optional, Tuple
 
 logger = logging.getLogger("autowz.writer")
 
@@ -98,7 +98,7 @@ SYSTEM_PROMPT = """你是"现象观察"财经观察机构的撰稿团队，为�
 
 
 class WriterService:
-    def __init__(self, author: str, llm_client: LLMClient | None = None) -> None:
+    def __init__(self, author: str, llm_client: Optional[LLMClient] = None) -> None:
         self.author = author
         self.llm = llm_client or get_llm_client()
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Tuple, List, Dict
+from typing import Optional
 
 from app.services.guard.blocklist import match_high_risk, match_medium_risk
 from app.services.llm.client import LLMClient, get_llm_client

@@ -3,7 +3,7 @@ import logging
 from app.services.collector.search import NewsItem
 from app.services.guard.blocklist import is_topic_risky
 from app.services.llm.client import LLMClient, get_llm_client
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger("autowz.selector")
 
@@ -129,11 +129,11 @@ BLACKLIST_KEYWORDS = [
 class TopicSelectorService:
     def __init__(
         self,
-        llm_client: LLMClient | None = None,
+        llm_client: Optional[LLMClient] = None,
         *,
-        priority_keywords: Dict[str, List[str]] | None = None,
-        downrank_keywords: List[str] | None = None,
-        blacklist_keywords: List[str] | None = None,
+        priority_keywords: Optional[Dict[str, List[str]]] = None,
+        downrank_keywords: Optional[List[str]] = None,
+        blacklist_keywords: Optional[List[str]] = None,
     ) -> None:
         self.llm = llm_client or get_llm_client()
         self.priority_keywords = priority_keywords or PRIORITY_KEYWORDS

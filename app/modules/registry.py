@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from app.core.config import get_settings
 from app.modules.base import BaseContentModule
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 ModuleFactory = Callable[[], type[BaseContentModule]]
 

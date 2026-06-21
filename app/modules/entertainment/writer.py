@@ -8,7 +8,7 @@
 #    都违背项目根本目标。详见 README 顶部纲领 与 GUIDE.md §8.3。
 
 import logging
-from typing import Optional
+from typing import Optional, Tuple
 
 import markdown as md_lib
 

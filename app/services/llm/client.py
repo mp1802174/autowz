@@ -3,7 +3,7 @@ import json
 import logging
 
 from functools import lru_cache
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from openai import AsyncOpenAI
 

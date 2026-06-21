@@ -1,4 +1,5 @@
 import asyncio
+from typing import Optional
 import logging
 
 from app.services.wechat.client import WechatClient
@@ -10,8 +11,8 @@ logger = logging.getLogger("autowz.wechat.publish")
 class WechatFreePublishService:
     def __init__(
         self,
-        token_service: WechatTokenService | None = None,
-        client: WechatClient | None = None,
+        token_service: Optional[WechatTokenService] = None,
+        client: Optional[WechatClient] = None,
     ) -> None:
         self.client = client or WechatClient()
         self.token_service = token_service or WechatTokenService(self.client)

@@ -11,7 +11,7 @@ import logging
 
 from app.services.publish.base import Channel
 from app.services.publish.product import ArticleProduct, PublishResult
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 logger = logging.getLogger("autowz.publish.router")
 
@@ -19,7 +19,7 @@ logger = logging.getLogger("autowz.publish.router")
 class PublishRouter:
     """渠道注册表 + 分发器。质量门 + 草稿优先 + 单渠道失败隔离。"""
 
-    def __init__(self, channels: List[Channel] | None = None, min_quality: float = 0.0) -> None:
+    def __init__(self, channels: Optional[List[Channel]] = None, min_quality: float = 0.0) -> None:
         self._channels: Dict[str, Channel] = {}
         self.min_quality = min_quality
         for ch in channels or []:

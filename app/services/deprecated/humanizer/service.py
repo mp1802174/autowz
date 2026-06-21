@@ -9,7 +9,7 @@ from app.services.content_length import (
     finalize_article,
 )
 from app.services.llm.client import LLMClient, get_llm_client
-from typing import List
+from typing import List, Optional
 
 logger = logging.getLogger("autowz.humanizer")
 
@@ -90,7 +90,7 @@ SYSTEM_PROMPT = """你是一位资深政论编辑，负责把稿件润色为符�
 
 
 class HumanizerService:
-    def __init__(self, llm_client: LLMClient | None = None) -> None:
+    def __init__(self, llm_client: Optional[LLMClient] = None) -> None:
         self.llm = llm_client or get_llm_client()
 
     async def rewrite(self, draft: dict) -> dict:

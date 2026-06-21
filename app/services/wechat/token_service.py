@@ -10,7 +10,7 @@ logger = logging.getLogger("autowz.wechat.token")
 
 
 class WechatTokenService:
-    def __init__(self, client: WechatClient | None = None) -> None:
+    def __init__(self, client: Optional[WechatClient] = None) -> None:
         self.settings = get_settings()
         self.client = client or WechatClient()
         self._cached_token: Optional[str] = None

@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from app.db.models import Article, Topic, WechatPublishRecord
-from typing import Optional
+from typing import List, Optional
 
 
 # ---- Topic ----

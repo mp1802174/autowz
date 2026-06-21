@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Optional
 import os
 from abc import abstractmethod
 from urllib.parse import urlparse

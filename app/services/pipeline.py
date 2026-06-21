@@ -43,7 +43,7 @@ from app.services.publish import (
 )
 from app.services.wechat.cover_generator import generate_cover_async
 from app.services.wechat.reading_guide import build_reading_guide_html
-from typing import Optional
+from typing import List, Optional
 
 logger = logging.getLogger("autowz.pipeline")
 

@@ -5,7 +5,7 @@ import httpx
 
 from app.core.config import get_settings
 from app.services.wechat.exceptions import WechatAPIError
-from typing import Optional
+from typing import Optional, Union
 
 logger = logging.getLogger("autowz.wechat.client")
 
@@ -59,7 +59,7 @@ class WechatClient:
         self,
         path: str,
         params: Optional[dict] = None,
-        file_path: str | Path = "",
+        file_path: Union[str, Path] = "",
         field_name: str = "media",
     ) -> dict:
         """上传文件到微信 API（multipart/form-data）。"""
