@@ -1,1 +1,2 @@
+- [维护记录](docs/maintenance_notes.md) — 2026-06-21 三渠道草稿、头条 save=0 坑位、定时配置与验证命令
 - [git push 绕代理](git-push-proxy.md) — 本环境 push GitHub 需绕过失效代理

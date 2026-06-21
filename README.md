@@ -1,10 +1,10 @@
-# autowz - 智能财经公众号自动发布系统
+# autowz - 智能多渠道文章自动草稿系统
 
-> 每天自动生成并发布**高质量、数据驱动**的财经评论文章到微信公众号
+> 自动采集热点、LLM 生成高质量文章，并保存到微信 / 头条 / 百家号草稿箱，人工审核后发布。
 
 **当前状态**: ✅ 生产就绪  
 **版本**: v2.0 (模块化架构)  
-**最后更新**: 2026-06-14
+**最后更新**: 2026-06-21
 
 ---
 
@@ -96,9 +96,11 @@ curl -X POST http://localhost:8000/api/v1/articles/preview \
 ## 📦 核心功能
 
 ### 1. 自动发布(定时任务)
-- **默认财经模块**: 每天早上 7:30 自动发布 1 篇财经数据解读
-- **娱乐模块已内置**: 需要时设置 `ACTIVE_MODULE=entertainment` 后重启
+- **当前生产模块**: `ACTIVE_MODULE=entertainment`，每天 16:20 生成 1 篇
+- **当前发布目标**: `PUBLISH_TARGETS=wechat,toutiao,baijiahao`
+- **发布策略**: 三渠道均只保存草稿，审核后人工发布；不允许自动正式发布
 - **可配置**: 在各模块 `config.py` 的 `SCHEDULE_SLOTS` 中修改时间/频率
+- **维护记录**: 关键变更与坑位见 `docs/maintenance_notes.md`
 
 ### 2. 手动发布(API)
 ```bash
@@ -109,7 +111,7 @@ POST /api/v1/articles/preview
   "stance": "谨慎观望"  # 可选
 }
 
-# 生成并发布
+# 生成并保存草稿
 POST /api/v1/articles/publish
 {
   "topic": "美联储降息预期"
@@ -134,7 +136,7 @@ pipeline = ArticlePipeline("entertainment")
 
 ### 当前模块
 - ✅ **财经模块** (`finance`): 数据驱动解读型,每天 7:30 发 1 篇
-- ✅ **娱乐模块** (`entertainment`): 影视/明星/综艺评论,默认不启用
+- ✅ **娱乐模块** (`entertainment`): 影视/明星/综艺评论,当前生产启用,每天 16:20 发 1 篇草稿
 
 ### 如何新增模块
 完整步骤见 `GUIDE.md → 模块扩展指南`
@@ -161,10 +163,12 @@ pipeline = ArticlePipeline("entertainment")
 文章草稿(650-750字)
     ↓ GuardService风控审核
 通过审核
-    ↓ 生成封面 + 导读区块
-完整文章
-    ↓ 上传微信草稿箱/发布
-✅ 完成
+    ↓ 生成封面
+标准文章产物
+    ↓ 渠道适配
+微信: 追加「精彩文章导读」+ 封面/正文图 → 草稿
+头条/百家: 剥离导读 + 上传封面/正文图 → 草稿
+✅ 三渠道草稿完成，人工审核后发布
 ```
 
 ---
