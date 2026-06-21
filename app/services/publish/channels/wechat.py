@@ -1,17 +1,21 @@
 """WechatChannel —— 把现有 app/services/wechat 发布编排包装成统一 Channel。
 
-行为与现状完全一致:草稿 / 自动发布仍由 settings.wechat_enable_auto_publish 决定,
-本类只做接口适配(ArticleProduct → WechatArticlePayload),不改动现有微信发布逻辑。
+统一保存草稿；真实发布必须人工审核后手动操作。
+本类做接口适配(ArticleProduct → WechatArticlePayload)，并只在微信正文追加导读区块。
 """
 from __future__ import annotations
 
 import logging
+import re
 
 from app.core.config import get_settings
 from app.models.schemas import WechatArticlePayload
 from app.services.publish.base import Channel
 from app.services.publish.product import ArticleProduct, PublishResult
 from app.services.wechat.service import WechatPublishOrchestrator
+from app.db.crud import get_random_published_articles
+from app.db.engine import get_db_session
+from app.services.wechat.reading_guide import build_reading_guide_html
 
 logger = logging.getLogger("autowz.publish.wechat")
 
@@ -31,19 +35,29 @@ class WechatChannel(Channel):
         return bool(getattr(s, "wechat_app_id", "") and getattr(s, "wechat_app_secret", ""))
 
     async def publish(self, product: ArticleProduct, *, as_draft: bool = True) -> PublishResult:
-        # 注:微信的草稿/发布由 settings.wechat_enable_auto_publish 控制,
-        # as_draft 在此不强制改变现有行为(保持现状,P0 不动主流程)。
+        # 固定草稿模式，避免任何渠道绕过人工审核直接发布。
+        content_html = product.content_html
+        with get_db_session() as session:
+            guide_articles = get_random_published_articles(
+                session, count=3, exclude_article_id=product.article_id
+            )
+        guide_html = build_reading_guide_html(guide_articles)
+        if guide_html:
+            content_html += guide_html
+
         payload = WechatArticlePayload(
-            title=product.title,
+            title=re.sub(r"[*_`#]+", "", product.title or "").strip(),
             author=product.author or getattr(self.settings, "content_author", "现象观察"),
             digest=product.digest,
-            content=product.content_html,
+            content=content_html,
             content_source_url=product.source_url or "",
             thumb_media_id="TO_BE_FILLED",  # 由 orchestrator 上传封面后填充
             need_open_comment=self.settings.default_comment_open,
             only_fans_can_comment=self.settings.default_fans_comment_only,
         )
-        result = await self.orchestrator.publish_article(payload, product.cover_path)
+        result = await self.orchestrator.publish_article(
+            payload, product.cover_path, force_draft=True
+        )
         return PublishResult(
             channel=self.name,
             ok=result.publish_status in _OK_STATUSES,

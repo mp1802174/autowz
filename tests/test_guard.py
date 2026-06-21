@@ -15,7 +15,7 @@ class TestGuardKeywords:
     @pytest.mark.asyncio
     async def test_medium_risk_keyword(self):
         guard = GuardService()
-        article = {"content_markdown": "必须封杀这个行为", "title": "标题"}
+        article = {"content_markdown": "中美市场出现波动", "title": "标题"}
         result = await guard.review(article)
         assert result["risk_level"] == "medium"
 

@@ -155,20 +155,15 @@ class ArticlePipeline:
             logger.warning("文章质量评分 %d < 80，跳过发布", preview.style_score)
             raise ValueError(f"文章质量评分不足 ({preview.style_score}/100)，请人工审核。")
 
-        content_html = preview.content_html
-        guide_html = self._build_reading_guide_html()
-        if guide_html:
-            content_html = content_html + guide_html
-
         cover_path = request.cover_image_path or await generate_cover_async(
             preview.title,
-            content=content_html,
+            content=preview.content_html,
         )
 
         product = ArticleProduct(
             title=preview.title,
             digest=preview.digest,
-            content_html=content_html,
+            content_html=preview.content_html,
             content_md=preview.content_markdown,
             author=self.settings.content_author,
             cover_path=cover_path,

@@ -27,14 +27,16 @@ class WechatPublishOrchestrator:
         self,
         payload: WechatArticlePayload,
         cover_image_path: Optional[str] = None,
+        *,
+        force_draft: bool = True,
     ) -> WechatPublishResult:
         try:
-            return await self._do_publish(payload, cover_image_path)
+            return await self._do_publish(payload, cover_image_path, force_draft=force_draft)
         except WechatAPIError as exc:
             if exc.errcode in TOKEN_EXPIRED_CODES:
                 logger.warning("Token 过期，刷新后重试: %s", exc)
                 self.token_service.invalidate()
-                return await self._do_publish(payload, cover_image_path)
+                return await self._do_publish(payload, cover_image_path, force_draft=force_draft)
 
             if self.settings.wechat_fallback_to_draft:
                 logger.error("发布失败，降级为仅草稿模式: %s", exc)
@@ -51,6 +53,8 @@ class WechatPublishOrchestrator:
         self,
         payload: WechatArticlePayload,
         cover_image_path: Optional[str],
+        *,
+        force_draft: bool = True,
     ) -> WechatPublishResult:
         # 1. 上传封面（永久素材）
         image_data = await self.material_service.upload_image(cover_image_path)
@@ -87,7 +91,7 @@ class WechatPublishOrchestrator:
         draft_media_id = await self.draft_service.create_draft(payload)
         logger.info("草稿已创建: %s", draft_media_id)
 
-        if not self.settings.wechat_enable_auto_publish:
+        if force_draft or not self.settings.wechat_enable_auto_publish:
             return WechatPublishResult(
                 draft_media_id=draft_media_id,
                 publish_status="draft_created",

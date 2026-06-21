@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -38,7 +38,7 @@ class PublishArticleResponse(BaseModel):
     publish_id: Optional[str] = None
     article_url: Optional[str] = None
     publish_status: str
-    fallback_mode: Literal["full_publish", "draft_only"]
+    fallback_mode: Literal["full_publish", "draft_only"] = "draft_only"
 
 
 class WechatArticlePayload(BaseModel):
@@ -61,4 +61,3 @@ class WechatPublishResult(BaseModel):
     cover_media_id: str = ""
     error_code: Optional[int] = None
     error_message: Optional[str] = None
-

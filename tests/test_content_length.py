@@ -23,9 +23,8 @@ def test_append_char_count_suffix_marks_body_count():
     assert append_char_count_suffix(text) == "甲乙丙丁。\n\n（全文共4字）"
 
 
-def test_finalize_article_keeps_total_within_limit_and_appends_suffix():
+def test_finalize_article_keeps_total_within_limit_without_machine_suffix():
     text = "甲" * 400
     final = finalize_article(text)
-    assert final.endswith("）")
-    assert "（全文共" in final
+    assert "（全文共" not in final
     assert count_cn_chars(final) <= MAX_ARTICLE_CHARS

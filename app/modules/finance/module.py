@@ -8,7 +8,6 @@ from datetime import date
 from typing import List
 
 from app.db.crud import (
-    get_random_published_articles,
     get_recent_selected_topics,
     save_article,
     save_publish_record,
@@ -38,7 +37,6 @@ from app.services.publish import (
     WechatChannel,
 )
 from app.services.wechat.cover_generator import generate_cover_async
-from app.services.wechat.reading_guide import build_reading_guide_html
 from app.core.config import get_settings
 
 logger = logging.getLogger("autowz.finance.module")
@@ -256,13 +254,6 @@ class FinanceModule(BaseContentModule):
                 update_article_status(session, article_id, "failed")
             return {"title": draft["title"], "status": "blocked_high_risk", "article_id": article_id}
 
-        # 底部导读区块
-        with get_db_session() as session:
-            guide_articles = get_random_published_articles(session, count=3, exclude_article_id=article_id)
-        guide_html = build_reading_guide_html(guide_articles)
-        if guide_html:
-            draft["content_html"] = draft["content_html"] + guide_html
-
         # 生成封面
         cover_path = await generate_cover_async(
             draft["title"],
@@ -289,7 +280,7 @@ class FinanceModule(BaseContentModule):
             results = await self.router.publish(product, targets=self._publish_targets, as_draft=True)
 
             any_ok = any(r.ok for r in results.values())
-            final_status = "published" if any_ok else "failed"
+            final_status = "draft_saved" if any_ok else "failed"
 
             with get_db_session() as session:
                 update_article_status(
