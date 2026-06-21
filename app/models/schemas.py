@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -13,7 +13,7 @@ class TopicCandidate(BaseModel):
 
 class ArticlePreviewRequest(BaseModel):
     topic: str
-    stance: str | None = None
+    stance: Optional[str] = None
 
 
 class ArticlePreviewResponse(BaseModel):
@@ -28,15 +28,15 @@ class ArticlePreviewResponse(BaseModel):
 class PublishArticleRequest(BaseModel):
     topic: str
     source_url: HttpUrl | None = None
-    cover_image_path: str | None = None
-    stance: str | None = None
+    cover_image_path: Optional[str] = None
+    stance: Optional[str] = None
 
 
 class PublishArticleResponse(BaseModel):
     title: str
     draft_media_id: str
-    publish_id: str | None = None
-    article_url: str | None = None
+    publish_id: Optional[str] = None
+    article_url: Optional[str] = None
     publish_status: str
     fallback_mode: Literal["full_publish", "draft_only"]
 
@@ -54,11 +54,11 @@ class WechatArticlePayload(BaseModel):
 
 class WechatPublishResult(BaseModel):
     draft_media_id: str
-    publish_id: str | None = None
-    article_url: str | None = None
+    publish_id: Optional[str] = None
+    article_url: Optional[str] = None
     publish_status: str
     fallback_mode: Literal["full_publish", "draft_only"]
     cover_media_id: str = ""
-    error_code: int | None = None
-    error_message: str | None = None
+    error_code: Optional[int] = None
+    error_message: Optional[str] = None
 

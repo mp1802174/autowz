@@ -11,6 +11,7 @@ import logging
 
 from app.services.publish.base import Channel
 from app.services.publish.product import ArticleProduct, PublishResult
+from typing import Dict, List
 
 logger = logging.getLogger("autowz.publish.router")
 
@@ -18,8 +19,8 @@ logger = logging.getLogger("autowz.publish.router")
 class PublishRouter:
     """渠道注册表 + 分发器。质量门 + 草稿优先 + 单渠道失败隔离。"""
 
-    def __init__(self, channels: list[Channel] | None = None, min_quality: float = 0.0) -> None:
-        self._channels: dict[str, Channel] = {}
+    def __init__(self, channels: List[Channel] | None = None, min_quality: float = 0.0) -> None:
+        self._channels: Dict[str, Channel] = {}
         self.min_quality = min_quality
         for ch in channels or []:
             self.register(ch)
@@ -28,18 +29,18 @@ class PublishRouter:
         self._channels[channel.name] = channel
 
     @property
-    def channels(self) -> list[str]:
+    def channels(self) -> List[str]:
         return list(self._channels)
 
     async def publish(
         self,
         product: ArticleProduct,
-        targets: list[str],
+        targets: List[str],
         *,
         as_draft: bool = True,
-    ) -> dict[str, PublishResult]:
+    ) -> Dict[str, PublishResult]:
         """把 product 发布到 targets 指定的各渠道,返回 {渠道名: 结果}。"""
-        results: dict[str, PublishResult] = {}
+        results: Dict[str, PublishResult] = {}
 
         # 质量门:不达标则全部拒发(第一纲领:质量低不如不做)
         if product.quality_score is not None and product.quality_score < self.min_quality:

@@ -13,6 +13,7 @@ import feedparser
 import httpx
 
 from app.core.config import get_settings
+from typing import List
 
 logger = logging.getLogger("autowz.collector.search")
 
@@ -40,7 +41,7 @@ class SearchResult:
 class TopicContext:
     """话题的新闻素材上下文，喂给 LLM 写作。"""
     topic: str
-    results: list[SearchResult] = field(default_factory=list)
+    results: List[SearchResult] = field(default_factory=list)
 
     def to_prompt_text(self) -> str:
         if not self.results:
@@ -97,9 +98,9 @@ class NewsCollector:
 
     # ━━━━━━━━━━ 1. 获取今日新闻池（供 LLM 选题）━━━━━━━━━━
 
-    async def fetch_news_pool(self, per_channel: int = 10) -> list[NewsItem]:
+    async def fetch_news_pool(self, per_channel: int = 10) -> List[NewsItem]:
         """从天行API + RSS 获取今日新闻列表，供 LLM 选题。"""
-        all_news: list[NewsItem] = []
+        all_news: List[NewsItem] = []
 
         # 天行API
         if self.tianapi_key:
@@ -118,7 +119,7 @@ class NewsCollector:
 
         # 按规范化标题去重
         seen: set[str] = set()
-        deduped: list[NewsItem] = []
+        deduped: List[NewsItem] = []
         for item in all_news:
             key = _normalize_title(item.title)
             if key not in seen:
@@ -128,7 +129,7 @@ class NewsCollector:
         logger.info("新闻池采集完成: 原始 %d → 去重 %d", len(all_news), len(deduped))
         return deduped
 
-    async def _fetch_tianapi(self, endpoint: str, num: int) -> list[NewsItem]:
+    async def _fetch_tianapi(self, endpoint: str, num: int) -> List[NewsItem]:
         """从天行API获取新闻列表。"""
         try:
             async with httpx.AsyncClient(timeout=10) as client:
@@ -154,7 +155,7 @@ class NewsCollector:
             logger.warning("天行API [%s] 请求失败: %s", endpoint, exc)
             return []
 
-    async def _fetch_rss(self, name: str, url: str, limit: int) -> list[NewsItem]:
+    async def _fetch_rss(self, name: str, url: str, limit: int) -> List[NewsItem]:
         """从 RSS 获取新闻列表。"""
         try:
             feed = feedparser.parse(url)
@@ -185,7 +186,7 @@ class NewsCollector:
         logger.info("话题素材采集 [%s]: %d 条", topic, len(context.results))
         return context
 
-    async def _search_sogou_news(self, query: str, max_results: int) -> list[SearchResult]:
+    async def _search_sogou_news(self, query: str, max_results: int) -> List[SearchResult]:
         """搜狗新闻搜索，按时间排序。"""
         try:
             async with httpx.AsyncClient(
@@ -202,9 +203,9 @@ class NewsCollector:
             return []
 
     @staticmethod
-    def _parse_sogou_html(html: str, max_results: int) -> list[SearchResult]:
+    def _parse_sogou_html(html: str, max_results: int) -> List[SearchResult]:
         """解析搜狗新闻搜索结果。"""
-        results: list[SearchResult] = []
+        results: List[SearchResult] = []
         parts = re.split(r'(?=<h3[^>]*>)', html)
 
         for part in parts:

@@ -9,6 +9,7 @@ from app.services.content_length import (
     finalize_article,
 )
 from app.services.llm.client import LLMClient, get_llm_client
+from typing import Optional
 
 logger = logging.getLogger("autowz.writer")
 
@@ -103,7 +104,7 @@ class WriterService:
 
     async def generate(
         self, topic: str,
-        stance: str | None = None, context_text: str = "",
+        stance: Optional[str] = None, context_text: str = "",
     ) -> dict:
         stance_hint = f"\n立场倾向：{stance}" if stance else ""
         context_block = f"\n\n{context_text}" if context_text else ""
@@ -179,7 +180,7 @@ class WriterService:
         }
 
     @staticmethod
-    def _parse_response(raw: str, topic: str) -> tuple[str, str, str]:
+    def _parse_response(raw: str, topic: str) -> Tuple[str, str, str]:
         """解析 LLM 输出，提取标题、摘要、正文。
 
         DeepSeek 等模型有时会在文章前输出思维过程，
@@ -251,7 +252,7 @@ class WriterService:
         return title, digest, content_md
 
     @staticmethod
-    def _fallback(topic: str, stance: str | None) -> tuple[str, str, str]:
+    def _fallback(topic: str, stance: Optional[str]) -> Tuple[str, str, str]:
         """LLM 不可用时的模板兜底。"""
         stance_text = stance or "别急着站队，但最后必须有判断"
         title = f"今天怎么看｜{topic}"

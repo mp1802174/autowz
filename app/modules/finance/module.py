@@ -96,7 +96,7 @@ class FinanceModule(BaseContentModule):
         return PublishRouter(channels, min_quality=0.0)
 
     @property
-    def _publish_targets(self) -> list[str]:
+    def _publish_targets(self) -> List[str]:
         raw = self.settings.publish_targets or "wechat"
         return [t.strip() for t in raw.split(",") if t.strip()]
 

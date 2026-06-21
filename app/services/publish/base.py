@@ -24,6 +24,6 @@ class Channel(ABC):
     async def publish(self, product: ArticleProduct, *, as_draft: bool = True) -> PublishResult:
         """发布一篇文章。默认草稿优先(as_draft=True),降低风控与误发风险。"""
 
-    async def fetch_stats(self, ref: str) -> ChannelStats | None:
+    async def fetch_stats(self, ref: str) -> Optional[ChannelStats]:
         """回收该渠道某篇文章的数据(阅读 / 点赞等)。默认未实现,P2 数据闭环时按渠道补。"""
         return None

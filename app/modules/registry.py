@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from app.core.config import get_settings
 from app.modules.base import BaseContentModule
+from typing import Dict, Optional
 
 ModuleFactory = Callable[[], type[BaseContentModule]]
 
@@ -18,18 +19,18 @@ def _get_entertainment_module() -> type[BaseContentModule]:
     return EntertainmentModule
 
 
-MODULE_REGISTRY: dict[str, ModuleFactory] = {
+MODULE_REGISTRY: Dict[str, ModuleFactory] = {
     "finance": _get_finance_module,
     "entertainment": _get_entertainment_module,
 }
 
 
-def list_modules() -> list[str]:
+def list_modules() -> List[str]:
     """列出所有已注册模块。"""
     return list(MODULE_REGISTRY.keys())
 
 
-def resolve_module_name(name: str | None = None) -> str:
+def resolve_module_name(name: Optional[str] = None) -> str:
     """解析模块名。
 
     name 为 None 时读取 ACTIVE_MODULE；默认值在配置里是 entertainment。
@@ -42,7 +43,7 @@ def resolve_module_name(name: str | None = None) -> str:
     return module_name
 
 
-def get_module(name: str | None = None) -> BaseContentModule:
+def get_module(name: Optional[str] = None) -> BaseContentModule:
     """根据模块名获取模块实例；name=None 时使用 ACTIVE_MODULE。"""
     module_name = resolve_module_name(name)
     module_class = MODULE_REGISTRY[module_name]()

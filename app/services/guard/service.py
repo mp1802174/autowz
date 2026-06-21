@@ -1,4 +1,5 @@
 import logging
+from typing import Optional, Tuple, List, Dict
 
 from app.services.guard.blocklist import match_high_risk, match_medium_risk
 from app.services.llm.client import LLMClient, get_llm_client
@@ -26,7 +27,7 @@ SYSTEM_PROMPT = """你是一位内容风控审核专家。请对以下文章进�
 class GuardService:
     """风控审核：先用集中词库（blocklist.py）快速拦截，再用 LLM 深度评估。"""
 
-    def __init__(self, llm_client: LLMClient | None = None) -> None:
+    def __init__(self, llm_client: Optional[LLMClient] = None) -> None:
         self.llm = llm_client or get_llm_client()
 
     async def review(self, article: dict) -> dict:

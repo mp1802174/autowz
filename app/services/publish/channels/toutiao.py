@@ -41,8 +41,6 @@ class ToutiaoChannel(PlaywrightChannel):
 
         title = (product.title or "")[:30]
         content = self._to_html(product)
-        if product.ai_disclosure:
-            content += "<p>(本文由 AI 辅助生成)</p>"
         word_cnt = len(re.sub(r"<[^>]+>", "", content))
 
         extra = json.dumps({

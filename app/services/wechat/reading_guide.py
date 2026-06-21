@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 
 def extract_cover_url(content_html: str) -> str:
@@ -13,7 +14,7 @@ def extract_cover_url(content_html: str) -> str:
     return ""
 
 
-def build_reading_guide_html(articles: list[dict]) -> str:
+def build_reading_guide_html(articles: List[dict]) -> str:
     """
     生成「精彩文章导读」底部区块 HTML。
 

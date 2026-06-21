@@ -11,6 +11,7 @@
 #    都违背项目根本目标。详见 README 顶部纲领 与 GUIDE.md §8.3。
 
 import logging
+from typing import Optional
 
 import markdown as md_lib
 
@@ -104,7 +105,7 @@ class DataDrivenWriter:
     def __init__(
         self,
         author: str,
-        llm_client: LLMClient | None = None,
+        llm_client: Optional[LLMClient] = None,
         *,
         min_chars: int = MIN_ARTICLE_CHARS,
         max_chars: int = MAX_ARTICLE_CHARS,
@@ -128,7 +129,7 @@ class DataDrivenWriter:
     async def generate(
         self,
         topic: str,
-        stance: str | None = None,
+        stance: Optional[str] = None,
         context_text: str = "",
     ) -> dict:
         """生成数据解读型文章
@@ -165,28 +166,17 @@ class DataDrivenWriter:
             f"- 标题12-20字,句式不要每篇雷同(数字/反差/疑问/直陈轮换挑最贴切的一种),不标题党"
         )
 
-        generation_source = "llm"
-        try:
-            raw = await self.llm.chat_completion(
-                self.system_prompt,
-                user_prompt,
-                temperature=self.temperature,
-                max_tokens=3000,
-                frequency_penalty=self.frequency_penalty,
-                presence_penalty=self.presence_penalty,
-            )
-        except Exception as exc:
-            logger.error("LLM调用失败,使用模板兜底: topic=%s err=%s", topic, exc)
-            generation_source = "fallback_llm_error"
-            title, digest, content_md = self._fallback(topic, stance)
-        else:
-            try:
-                title, digest, content_md = self._parse_response(raw, topic)
-                logger.info("LLM文本解析成功: topic=%s raw_len=%d", topic, len(raw))
-            except Exception as exc:
-                logger.error("LLM解析失败,使用模板兜底: topic=%s err=%s", topic, exc)
-                generation_source = "fallback_parse_error"
-                title, digest, content_md = self._fallback(topic, stance)
+        raw = await self.llm.chat_completion(
+            self.system_prompt,
+            user_prompt,
+            temperature=self.temperature,
+            max_tokens=3000,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
+        )
+
+        title, digest, content_md = self._parse_response(raw, topic)
+        logger.info("LLM文本解析成功: topic=%s raw_len=%d", topic, len(raw))
 
         # Phase 1: finalize_article 已改为只裁剪,不加"(全文共X字)"
         content_md = finalize_article(content_md, max_chars=self.max_chars)
@@ -194,21 +184,15 @@ class DataDrivenWriter:
         content_html = md_lib.markdown(content_md, extensions=['tables'])
         cn_chars = count_cn_chars(content_md)
 
-        if generation_source != "llm":
-            logger.warning(
-                "文章生成使用兜底模板: title=%s source=%s chars=%d topic=%s",
-                title, generation_source, cn_chars, topic,
-            )
-
         if cn_chars < self.min_chars:
             logger.warning(
-                "文章生成字数偏少: %s (%d字 < %d字, source=%s)",
-                title, cn_chars, self.min_chars, generation_source,
+                "文章生成字数偏少: %s (%d字 < %d字)",
+                title, cn_chars, self.min_chars,
             )
 
         logger.info(
-            "文章生成完成: %s (%d字, 最大%d字, source=%s)",
-            title, cn_chars, self.max_chars, generation_source,
+            "文章生成完成: %s (%d字, 最大%d字)",
+            title, cn_chars, self.max_chars,
         )
 
         # Phase 1: 单次生成,style_score 提升到 85(因为去除了双LLM的AI指纹)
@@ -221,7 +205,7 @@ class DataDrivenWriter:
         }
 
     @staticmethod
-    def _parse_response(raw: str, topic: str) -> tuple[str, str, str]:
+    def _parse_response(raw: str, topic: str) -> Tuple[str, str, str]:
         """解析LLM输出,提取标题、摘要、正文"""
         lines = raw.strip().split("\n")
 
@@ -270,19 +254,3 @@ class DataDrivenWriter:
 
         return title, digest, content_md
 
-    @staticmethod
-    def _fallback(topic: str, stance: str | None) -> tuple[str, str, str]:
-        """LLM不可用时的模板兜底"""
-        stance_text = stance or "数据会说话,但需要正确解读"
-        title = topic
-        digest = f"围绕[{topic}]的数据分析。"
-        md = (
-            f"公开信息显示,{topic}正在引发市场关注。对普通家庭来说,这件事真正影响的不是新闻本身,而是现金、理财和消费决策都要重新算一遍。\n\n"
-            f"从已披露的关键数字看,市场正在发生结构性变化。"
-            f"这类变化往往不是单一事件驱动,而是多重因素共振的结果。\n\n"
-            f"对普通人而言,数据背后是真金白银的利益调整。"
-            f"产业链上下游企业会重新分配资源,消费者的选择和成本也会随之变化。\n\n"
-            f"我的判断是:{stance_text}。"
-            f"真正值得关注的不是短期波动,而是趋势是否已经形成,以及这个趋势对自己钱包的影响有多大。"
-        )
-        return title, digest, md

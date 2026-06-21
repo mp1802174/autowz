@@ -3,6 +3,7 @@ import json
 import logging
 
 from functools import lru_cache
+from typing import List, Optional
 
 from openai import AsyncOpenAI
 
@@ -20,6 +21,11 @@ class LLMClient:
         )
         self.default_model = settings.openai_model
 
+        # 解析 fallback 模型列表
+        fallback_str = settings.llm_fallback_models.strip()
+        self.fallback_models = [m.strip() for m in fallback_str.split(",") if m.strip()] if fallback_str else []
+        logger.info("LLM fallback 模型链: %s", " → ".join(self.fallback_models) if self.fallback_models else "无")
+
     async def chat_completion(
         self,
         system_prompt: str,
@@ -27,53 +33,85 @@ class LLMClient:
         *,
         temperature: float = 0.7,
         max_tokens: int = 4096,
-        model: str | None = None,
+        model: Optional[str] = None,
         frequency_penalty: float = 0.0,
         presence_penalty: float = 0.0,
     ) -> str:
-        """调用 LLM 生成文本，内置重试机制。
+        """调用 LLM 生成文本，内置重试机制 + fallback 模型切换。
 
         frequency_penalty/presence_penalty 用于降低用词重复、提升多样性；
         仅在 > 0 时传给后端，避免给不支持该参数的代理发送。
+
+        Fallback 机制:
+        1. 先用指定模型重试 3 次
+        2. 失败后按 fallback_models 顺序依次尝试其他模型(每个也重试 3 次)
+        3. 所有模型都失败才抛出异常
         """
-        model = model or self.default_model
-        last_error: Exception | None = None
+        target_model = model or self.default_model
+        models_to_try = [target_model] + [m for m in self.fallback_models if m != target_model]
 
-        for attempt in range(3):
-            try:
-                # 使用 stream 模式，因为部分 API 代理在非流式模式下不返回 content
-                create_kwargs: dict = {
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                    "stream": True,
-                }
-                if frequency_penalty:
-                    create_kwargs["frequency_penalty"] = frequency_penalty
-                if presence_penalty:
-                    create_kwargs["presence_penalty"] = presence_penalty
-                stream = await self.client.chat.completions.create(**create_kwargs)
-                chunks: list[str] = []
-                async for chunk in stream:
-                    if chunk.choices and chunk.choices[0].delta.content:
-                        chunks.append(chunk.choices[0].delta.content)
-                content = "".join(chunks)
-                logger.info(
-                    "LLM 调用成功: model=%s, 输出长度=%d",
-                    model, len(content),
+        all_errors: List[Tuple[str, Exception]] = []
+
+        for model_idx, current_model in enumerate(models_to_try):
+            if model_idx > 0:
+                logger.warning(
+                    "主模型 %s 失败,切换到 fallback 模型 %s (%d/%d)",
+                    target_model, current_model, model_idx, len(models_to_try) - 1,
                 )
-                return content
-            except Exception as exc:
-                last_error = exc
-                wait = 2 ** attempt
-                logger.warning("LLM 调用失败 (attempt %d/3): %s, %ds 后重试", attempt + 1, exc, wait)
-                await asyncio.sleep(wait)
 
-        raise RuntimeError(f"LLM 调用 3 次均失败: {last_error}") from last_error
+            for attempt in range(3):
+                try:
+                    # 使用 stream 模式，因为部分 API 代理在非流式模式下不返回 content
+                    create_kwargs: dict = {
+                        "model": current_model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "stream": True,
+                    }
+                    if frequency_penalty:
+                        create_kwargs["frequency_penalty"] = frequency_penalty
+                    if presence_penalty:
+                        create_kwargs["presence_penalty"] = presence_penalty
+
+                    stream = await self.client.chat.completions.create(**create_kwargs)
+                    chunks: List[str] = []
+                    async for chunk in stream:
+                        if chunk.choices and chunk.choices[0].delta.content:
+                            chunks.append(chunk.choices[0].delta.content)
+                    content = "".join(chunks)
+
+                    if model_idx > 0:
+                        logger.info(
+                            "✅ Fallback 成功: 使用模型 %s 生成, 输出长度=%d",
+                            current_model, len(content),
+                        )
+                    else:
+                        logger.info(
+                            "LLM 调用成功: model=%s, 输出长度=%d",
+                            current_model, len(content),
+                        )
+                    return content
+
+                except Exception as exc:
+                    wait = 2 ** attempt
+                    logger.warning(
+                        "模型 %s 调用失败 (attempt %d/3): %s, %ds 后重试",
+                        current_model, attempt + 1, str(exc)[:100], wait,
+                    )
+                    await asyncio.sleep(wait)
+
+                    if attempt == 2:  # 第3次重试也失败了
+                        all_errors.append((current_model, exc))
+
+        # 所有模型都失败
+        error_summary = "; ".join(f"{m}: {str(e)[:50]}" for m, e in all_errors)
+        raise RuntimeError(
+            f"所有 LLM 模型均失败 (尝试了 {len(models_to_try)} 个模型): {error_summary}"
+        ) from all_errors[-1][1]
 
     async def json_completion(
         self,
@@ -82,7 +120,7 @@ class LLMClient:
         *,
         temperature: float = 0.3,
         max_tokens: int = 4096,
-        model: str | None = None,
+        model: Optional[str] = None,
     ) -> dict:
         """调用 LLM 并解析 JSON 响应。"""
         system_prompt += "\n\n请只输出合法 JSON，不要包含 markdown 代码块标记或任何其他文字。"

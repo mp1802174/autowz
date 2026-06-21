@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-5.4", alias="OPENAI_MODEL")
 
+    # LLM fallback 模型列表(按优先级排序)
+    llm_fallback_models: str = Field(
+        default="claude-opus-4-6,claude-sonnet-4-6,deepseek-v4-pro,kimi-k2.6,kimi-k2p5,gpt-oss-120b,google/gemma-4-31b-it",
+        alias="LLM_FALLBACK_MODELS",
+    )
+
     publish_targets: str = Field(default="wechat", alias="PUBLISH_TARGETS")
 
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")

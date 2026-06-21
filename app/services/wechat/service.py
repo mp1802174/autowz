@@ -8,6 +8,7 @@ from app.services.wechat.exceptions import WechatAPIError
 from app.services.wechat.material_service import WechatMaterialService
 from app.services.wechat.publish_service import WechatFreePublishService
 from app.services.wechat.token_service import WechatTokenService
+from typing import Optional
 
 logger = logging.getLogger("autowz.wechat")
 
@@ -25,7 +26,7 @@ class WechatPublishOrchestrator:
     async def publish_article(
         self,
         payload: WechatArticlePayload,
-        cover_image_path: str | None = None,
+        cover_image_path: Optional[str] = None,
     ) -> WechatPublishResult:
         try:
             return await self._do_publish(payload, cover_image_path)
@@ -49,7 +50,7 @@ class WechatPublishOrchestrator:
     async def _do_publish(
         self,
         payload: WechatArticlePayload,
-        cover_image_path: str | None,
+        cover_image_path: Optional[str],
     ) -> WechatPublishResult:
         # 1. 上传封面（永久素材）
         image_data = await self.material_service.upload_image(cover_image_path)

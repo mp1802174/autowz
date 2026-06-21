@@ -60,7 +60,7 @@ class BaseContentModule(ABC):
 
     @property
     @abstractmethod
-    def schedule_slots(self) -> list[ScheduleSlot]:
+    def schedule_slots(self) -> List[ScheduleSlot]:
         """模块定时任务配置"""
         pass
 

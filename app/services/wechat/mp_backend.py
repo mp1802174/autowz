@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
+from typing import Dict, List, Optional
 
 logger = logging.getLogger("autowz.wechat.mp_backend")
 
@@ -45,7 +46,7 @@ class WechatMpBackend:
 
     # ─── 凭据 ───────────────────────────────────────────────────────────
 
-    def _load_auth(self) -> tuple[str, str]:
+    def _load_auth(self) -> Tuple[str, str]:
         if not self.auth_path.exists():
             raise MpBackendAuthExpired(
                 f"凭据文件不存在: {self.auth_path}，请在 newwz 项目扫码登录"
@@ -125,9 +126,9 @@ class WechatMpBackend:
 
     async def list_published_articles(
         self,
-        account_name: str | None = None,
+        account_name: Optional[str] = None,
         limit: int = 200,
-    ) -> list[dict]:
+    ) -> List[dict]:
         """
         拉取"已发布"文章列表。
 
@@ -141,7 +142,7 @@ class WechatMpBackend:
         """
         token, cookie = self._load_auth()
 
-        base_params: dict[str, object] = {
+        base_params: Dict[str, object] = {
             "sub": "list", "search_field": "null", "query": "",
             "type": "101_1", "free_publish_type": 1,
             "sub_action": "list_ex", "token": token,
@@ -150,7 +151,7 @@ class WechatMpBackend:
         if account_name is not None:
             base_params["fakeid"] = await self.get_fakeid(account_name)
 
-        results: list[dict] = []
+        results: List[dict] = []
         page_size = 5
         async with httpx.AsyncClient(timeout=20) as client:
             for begin in range(0, limit, page_size):

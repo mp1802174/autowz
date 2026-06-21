@@ -3,6 +3,7 @@ import logging
 import httpx
 
 from app.services.collector.base import BaseCollector, CollectedTopic
+from typing import List
 
 logger = logging.getLogger("autowz.collector.baidu")
 
@@ -19,7 +20,7 @@ class BaiduCollector(BaseCollector):
         "Accept": "application/json, text/plain, */*",
     }
 
-    async def collect(self) -> list[CollectedTopic]:
+    async def collect(self) -> List[CollectedTopic]:
         try:
             async with httpx.AsyncClient(timeout=15, headers=self.HEADERS) as client:
                 resp = await client.get(self.URL)
@@ -27,11 +28,11 @@ class BaiduCollector(BaseCollector):
                 data = resp.json()
 
             cards = data.get("data", {}).get("cards", [])
-            topics: list[CollectedTopic] = []
+            topics: List[CollectedTopic] = []
             for card in cards:
                 # 百度 API 结构：cards[].content[] 每个元素内部还有一层 content[]
                 outer_items = card.get("content", [])
-                items: list[dict] = []
+                items: List[dict] = []
                 for outer in outer_items:
                     if isinstance(outer, dict) and "content" in outer:
                         items.extend(outer["content"])

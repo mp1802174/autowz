@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 # OPTIMIZE: 字数从200-300提升到650-750
 MIN_ARTICLE_CHARS = 650
@@ -31,7 +32,7 @@ def trim_markdown_to_max_chars(text: str, max_chars: int = MAX_ARTICLE_CHARS) ->
                 return candidate
             body.pop(-1)
 
-    chars: list[str] = []
+    chars: List[str] = []
     cn_count = 0
     for ch in text:
         if "\u4e00" <= ch <= "\u9fff":

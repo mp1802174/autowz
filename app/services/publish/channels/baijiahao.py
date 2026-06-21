@@ -58,8 +58,6 @@ class BaijiahaoChannel(PlaywrightChannel):
 
         title = (product.title or "")[:40]
         content = self._to_html(product)
-        if product.ai_disclosure:
-            content += "<p>(本文由 AI 辅助生成)</p>"
 
         # is_draft=1: 保存草稿, is_draft=0: 直接发布
         draft_flag = "1" if as_draft else "0"

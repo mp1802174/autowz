@@ -9,8 +9,9 @@
   生话题。
 """
 
+from typing import Optional, Tuple
 # === 高风险：直接拦截 ===
-HIGH_RISK_TERMS: tuple[str, ...] = (
+HIGH_RISK_TERMS: Tuple[str, ...] = (
     # 涉政体 / 国安
     "颠覆", "推翻政权", "反动", "分裂", "政变", "暴动", "国家机密",
     "国安委", "纪委", "中纪委", "维稳", "黑监狱", "信访",
@@ -38,7 +39,7 @@ HIGH_RISK_TERMS: tuple[str, ...] = (
 )
 
 # === 中风险：允许，但标记 medium，写作时回避煽动性表达 ===
-MEDIUM_RISK_TERMS: tuple[str, ...] = (
+MEDIUM_RISK_TERMS: Tuple[str, ...] = (
     # 涉中美博弈（"中美"为高频敏感词，公众号侧极易限流，统一标 medium）
     "中美", "中欧", "中日", "中韩",
     "对华遏制", "对华制裁", "中国威胁论",
@@ -60,7 +61,7 @@ MEDIUM_RISK_TERMS: tuple[str, ...] = (
 )
 
 # === 降权：选题阶段扣分但不拦截 ===
-DOWNRANK_TERMS: tuple[str, ...] = (
+DOWNRANK_TERMS: Tuple[str, ...] = (
     "明星", "恋情", "离婚", "绯闻", "八卦", "塌房", "网红",
     "穿搭", "颜值", "综艺", "粉丝", "猎奇", "奇葩", "震惊",
     "吃瓜",
@@ -71,7 +72,7 @@ def _normalize(text: str) -> str:
     return (text or "").lower()
 
 
-def match_high_risk(text: str) -> str | None:
+def match_high_risk(text: str) -> Optional[str]:
     """返回命中的第一个高风险词，未命中返回 None。"""
     t = _normalize(text)
     for term in HIGH_RISK_TERMS:
@@ -80,7 +81,7 @@ def match_high_risk(text: str) -> str | None:
     return None
 
 
-def match_medium_risk(text: str) -> str | None:
+def match_medium_risk(text: str) -> Optional[str]:
     """返回命中的第一个中风险词，未命中返回 None。"""
     t = _normalize(text)
     for term in MEDIUM_RISK_TERMS:
@@ -89,13 +90,13 @@ def match_medium_risk(text: str) -> str | None:
     return None
 
 
-def is_topic_blocked(text: str) -> tuple[bool, str | None]:
+def is_topic_blocked(text: str) -> Tuple[bool, Optional[str]]:
     """选题级硬拦截：仅看高风险。返回 (是否拦截, 命中词)。"""
     hit = match_high_risk(text)
     return (hit is not None), hit
 
 
-def is_topic_risky(text: str) -> tuple[bool, str, str | None]:
+def is_topic_risky(text: str) -> Tuple[bool, str, Optional[str]]:
     """选题级风险检查：高/中风险均拦截。返回 (是否拦截, 等级, 命中词)。
 
     用于自动批次的 selector：自动管线一律不碰 high/medium，避免限流。

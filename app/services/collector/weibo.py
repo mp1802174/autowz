@@ -4,6 +4,7 @@ from urllib.parse import quote
 import httpx
 
 from app.services.collector.base import BaseCollector, CollectedTopic
+from typing import List
 
 logger = logging.getLogger("autowz.collector.weibo")
 
@@ -21,7 +22,7 @@ class WeiboCollector(BaseCollector):
         "Referer": "https://weibo.com/",
     }
 
-    async def collect(self) -> list[CollectedTopic]:
+    async def collect(self) -> List[CollectedTopic]:
         try:
             async with httpx.AsyncClient(timeout=15, headers=self.HEADERS) as client:
                 resp = await client.get(self.URL)
@@ -29,7 +30,7 @@ class WeiboCollector(BaseCollector):
                 data = resp.json()
 
             realtime = data.get("data", {}).get("realtime", [])
-            topics: list[CollectedTopic] = []
+            topics: List[CollectedTopic] = []
             for item in realtime[:30]:
                 word = item.get("word", "")
                 if not word:

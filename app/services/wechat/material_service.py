@@ -3,6 +3,7 @@ from pathlib import Path
 
 from app.services.wechat.client import WechatClient
 from app.services.wechat.token_service import WechatTokenService
+from typing import Optional
 
 logger = logging.getLogger("autowz.wechat.material")
 
@@ -16,7 +17,7 @@ class WechatMaterialService:
         self.client = client or WechatClient()
         self.token_service = token_service or WechatTokenService(self.client)
 
-    async def upload_image(self, image_path: str | None) -> dict:
+    async def upload_image(self, image_path: Optional[str]) -> dict:
         if not image_path:
             logger.warning("未提供封面图片，使用 mock media_id")
             return {"media_id": "mock-thumb-media-id", "url": ""}
@@ -40,7 +41,7 @@ class WechatMaterialService:
         logger.info("封面上传成功: media_id=%s", media_id)
         return {"media_id": media_id, "url": url}
 
-    async def upload_temp_image(self, image_path: str | None) -> dict:
+    async def upload_temp_image(self, image_path: Optional[str]) -> dict:
         """上传图片用于正文插入（使用图文消息专用接口）。"""
         if not image_path:
             logger.warning("未提供图片")

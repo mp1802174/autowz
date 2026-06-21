@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import List, Optional
 
 
 @dataclass
@@ -17,15 +18,15 @@ class ArticleProduct:
     content_html: str
     content_md: str = ""
     author: str = ""
-    cover_path: str | None = None
-    tags: list[str] = field(default_factory=list)
+    cover_path: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
     source_url: str = ""
     # 是否注入"AI 辅助生成"声明(合规,见 GUIDE §8.5;走质量+合规路线,不做规避)
     ai_disclosure: bool = True
     # 质量门评分(0-100);Router 据此拒发低质内容,落实项目第一纲领
-    quality_score: float | None = None
+    quality_score: Optional[float] = None
     # 关联数据库文章 id(可选)
-    article_id: int | None = None
+    article_id: Optional[int] = None
 
 
 @dataclass
@@ -35,10 +36,10 @@ class PublishResult:
     channel: str
     ok: bool
     status: str  # 渠道返回的状态字符串
-    url: str | None = None
-    draft_id: str | None = None
-    skipped_reason: str | None = None  # 非空表示被跳过(质量门 / 未就绪)
-    error: str | None = None
+    url: Optional[str] = None
+    draft_id: Optional[str] = None
+    skipped_reason: Optional[str] = None  # 非空表示被跳过(质量门 / 未就绪)
+    error: Optional[str] = None
     raw: dict = field(default_factory=dict)
 
 
@@ -47,7 +48,7 @@ class ChannelStats:
     """渠道侧数据回收结构(P2 数据闭环用)。"""
 
     channel: str
-    read_count: int | None = None
-    like_count: int | None = None
-    share_count: int | None = None
+    read_count: Optional[int] = None
+    like_count: Optional[int] = None
+    share_count: Optional[int] = None
     raw: dict = field(default_factory=dict)

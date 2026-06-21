@@ -1,4 +1,5 @@
 import logging
+from typing import Dict
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -40,7 +41,7 @@ app.include_router(api_router)
 
 
 @app.get("/", tags=["root"])
-async def root() -> dict[str, str]:
+async def root() -> Dict[str, str]:
     return {
         "app": settings.app_name,
         "env": settings.app_env,

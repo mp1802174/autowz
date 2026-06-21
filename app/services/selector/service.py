@@ -3,6 +3,7 @@ import logging
 from app.services.collector.search import NewsItem
 from app.services.guard.blocklist import is_topic_risky
 from app.services.llm.client import LLMClient, get_llm_client
+from typing import Dict, List, Optional
 
 logger = logging.getLogger("autowz.selector")
 
@@ -130,9 +131,9 @@ class TopicSelectorService:
         self,
         llm_client: LLMClient | None = None,
         *,
-        priority_keywords: dict[str, list[str]] | None = None,
-        downrank_keywords: list[str] | None = None,
-        blacklist_keywords: list[str] | None = None,
+        priority_keywords: Dict[str, List[str]] | None = None,
+        downrank_keywords: List[str] | None = None,
+        blacklist_keywords: List[str] | None = None,
     ) -> None:
         self.llm = llm_client or get_llm_client()
         self.priority_keywords = priority_keywords or PRIORITY_KEYWORDS
@@ -140,9 +141,9 @@ class TopicSelectorService:
         self.blacklist_keywords = blacklist_keywords if blacklist_keywords is not None else BLACKLIST_KEYWORDS
 
     async def select(
-        self, news_items: list[NewsItem], *, short_count: int = 2, long_count: int = 0,
-        category: str | None = None,
-    ) -> dict[str, list[NewsItem]]:
+        self, news_items: List[NewsItem], *, short_count: int = 2, long_count: int = 0,
+        category: Optional[str] = None,
+    ) -> Dict[str, List[NewsItem]]:
         """从新闻列表中选出适合评论的优先话题。"""
         if not news_items:
             return {"short": [], "long": []}
@@ -150,7 +151,7 @@ class TopicSelectorService:
         # 前置硬拦截：剔除涉政体/涉港澳台/涉军/涉民族/涉群体事件/涉中美博弈
         # 等高/中风险题材，自动管线一律不生成
         before = len(news_items)
-        filtered: list[NewsItem] = []
+        filtered: List[NewsItem] = []
         for n in news_items:
             risky, level, hit = is_topic_risky(f"{n.title} {n.description or ''}")
             if risky:
@@ -183,7 +184,7 @@ class TopicSelectorService:
             rankings = result.get("rankings", [])
             rankings.sort(key=lambda r: r.get("total_score", 0), reverse=True)
 
-            selected_topics: list[NewsItem] = []
+            selected_topics: List[NewsItem] = []
             target_count = short_count + long_count
 
             for r in rankings:
@@ -213,7 +214,7 @@ class TopicSelectorService:
             logger.error("LLM 选题失败，回退到关键词优先模式: %s", exc)
             return self._fallback_select(news_items, short_count, long_count)
 
-    def _priority_score(self, item: NewsItem) -> tuple[int, int]:
+    def _priority_score(self, item: NewsItem) -> Tuple[int, int]:
         text = f"{item.title} {item.description}".lower()
         score = 0
 
@@ -236,8 +237,8 @@ class TopicSelectorService:
         return score, -len(item.title)
 
     def _fallback_select(
-        self, news_items: list[NewsItem], short_count: int, long_count: int,
-    ) -> dict[str, list[NewsItem]]:
+        self, news_items: List[NewsItem], short_count: int, long_count: int,
+    ) -> Dict[str, List[NewsItem]]:
         """LLM 不可用时的兜底选题：按关键词优先级排序后取前 N 条。"""
         # OPTIMIZE: 黑名单过滤
         filtered = []

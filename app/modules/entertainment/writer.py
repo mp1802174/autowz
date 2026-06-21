@@ -8,6 +8,7 @@
 #    都违背项目根本目标。详见 README 顶部纲领 与 GUIDE.md §8.3。
 
 import logging
+from typing import Optional
 
 import markdown as md_lib
 
@@ -68,7 +69,7 @@ class EntertainmentWriter:
     def __init__(
         self,
         author: str,
-        llm_client: LLMClient | None = None,
+        llm_client: Optional[LLMClient] = None,
         *,
         min_chars: int = 650,
         max_chars: int = 800,
@@ -92,7 +93,7 @@ class EntertainmentWriter:
     async def generate(
         self,
         topic: str,
-        stance: str | None = None,
+        stance: Optional[str] = None,
         context_text: str = "",
     ) -> dict:
         stance_hint = f"\n立场倾向:{stance}" if stance else ""
@@ -114,42 +115,26 @@ class EntertainmentWriter:
             f"- 标题12-24字，句式不要套路化:疑问/悬念/反差/直陈中挑最贴切的一种,别每篇都同一个模板,不标题党"
         )
 
-        generation_source = "llm"
-        try:
-            raw = await self.llm.chat_completion(
-                self.system_prompt,
-                user_prompt,
-                temperature=self.temperature,
-                max_tokens=3000,
-                frequency_penalty=self.frequency_penalty,
-                presence_penalty=self.presence_penalty,
-            )
-        except Exception as exc:
-            logger.error("娱乐 LLM 调用失败，使用模板兜底: topic=%s err=%s", topic, exc)
-            generation_source = "fallback_llm_error"
-            title, digest, content_md = self._fallback(topic, stance)
-        else:
-            try:
-                title, digest, content_md = self._parse_response(raw, topic)
-                logger.info("娱乐文本解析成功: topic=%s raw_len=%d", topic, len(raw))
-            except Exception as exc:
-                logger.error("娱乐 LLM 解析失败，使用模板兜底: topic=%s err=%s", topic, exc)
-                generation_source = "fallback_parse_error"
-                title, digest, content_md = self._fallback(topic, stance)
+        raw = await self.llm.chat_completion(
+            self.system_prompt,
+            user_prompt,
+            temperature=self.temperature,
+            max_tokens=3000,
+            frequency_penalty=self.frequency_penalty,
+            presence_penalty=self.presence_penalty,
+        )
+
+        title, digest, content_md = self._parse_response(raw, topic)
+        logger.info("娱乐文本解析成功: topic=%s raw_len=%d", topic, len(raw))
 
         content_md = finalize_article(content_md, max_chars=self.max_chars)
         content_html = md_lib.markdown(content_md, extensions=["tables"])
         cn_chars = count_cn_chars(content_md)
 
-        if generation_source != "llm":
-            logger.warning(
-                "娱乐文章使用兜底模板: title=%s source=%s chars=%d topic=%s",
-                title, generation_source, cn_chars, topic,
-            )
         if cn_chars < self.min_chars:
             logger.warning(
-                "娱乐文章字数偏少: %s (%d字 < %d字, source=%s)",
-                title, cn_chars, self.min_chars, generation_source,
+                "娱乐文章字数偏少: %s (%d字 < %d字)",
+                title, cn_chars, self.min_chars,
             )
 
         logger.info("娱乐文章生成完成: %s (%d字, 最大%d字)", title, cn_chars, self.max_chars)
@@ -162,7 +147,7 @@ class EntertainmentWriter:
         }
 
     @staticmethod
-    def _parse_response(raw: str, topic: str) -> tuple[str, str, str]:
+    def _parse_response(raw: str, topic: str) -> Tuple[str, str, str]:
         lines = raw.strip().split("\n")
         title = ""
         digest = ""
@@ -197,17 +182,3 @@ class EntertainmentWriter:
             digest = digest[:118] + "…"
         return title, digest, content_md
 
-    @staticmethod
-    def _fallback(topic: str, stance: str | None) -> tuple[str, str, str]:
-        stance_text = stance or "热闹背后，更该看作品和观众感受"
-        title = topic
-        digest = f"围绕[{topic}]的娱乐观察。"
-        md = (
-            f"公开信息显示，{topic}正在引发观众讨论。真正有意思的地方，不只是它上了热搜，而是观众为什么愿意讨论。\n\n"
-            f"如果只看表面，这像是一条普通娱乐新闻。但放到作品、人物和舆论现场里看，"
-            f"它其实反映的是观众对内容质量、明星表达和平台热度的重新打分。\n\n"
-            f"娱乐新闻当然可以轻松看，但不能只剩情绪。哪些是事实，哪些只是传闻，"
-            f"哪些是营销推出来的话题，都需要分清楚。\n\n"
-            f"我的判断是：{stance_text}。真正能留下来的，永远不是一时的热搜，而是作品和表达能不能经得起观众回看。"
-        )
-        return title, digest, md

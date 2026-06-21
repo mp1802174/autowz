@@ -38,7 +38,7 @@ class PlaywrightChannel(Channel):
     def state_path(self) -> str:
         return os.path.join(COOKIES_DIR, self.state_filename)
 
-    def _proxy(self) -> dict | None:
+    def _proxy(self) -> Optional[dict]:
         """从环境代理变量构造 Playwright proxy 配置(chromium 不自动读 env 代理)。"""
         raw = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY") or ""
         if not raw:

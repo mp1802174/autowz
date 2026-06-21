@@ -5,6 +5,7 @@ import httpx
 
 from app.core.config import get_settings
 from app.services.wechat.exceptions import WechatAPIError
+from typing import Optional
 
 logger = logging.getLogger("autowz.wechat.client")
 
@@ -27,7 +28,7 @@ class WechatClient:
             raise WechatAPIError(errcode, errmsg)
         return data
 
-    async def get(self, path: str, params: dict | None = None) -> dict:
+    async def get(self, path: str, params: Optional[dict] = None) -> dict:
         # 微信API不走代理,使用本机真实IP
         # httpx 0.28 使用 trust_env=False 禁用环境变量代理
         async with httpx.AsyncClient(
@@ -41,7 +42,7 @@ class WechatClient:
         return self._check_response(data)
 
     async def post_json(
-        self, path: str, params: dict | None = None, json_body: dict | None = None,
+        self, path: str, params: Optional[dict] = None, json_body: Optional[dict] = None,
     ) -> dict:
         # 微信API不走代理,使用本机真实IP
         async with httpx.AsyncClient(
@@ -57,7 +58,7 @@ class WechatClient:
     async def post_multipart(
         self,
         path: str,
-        params: dict | None = None,
+        params: Optional[dict] = None,
         file_path: str | Path = "",
         field_name: str = "media",
     ) -> dict:

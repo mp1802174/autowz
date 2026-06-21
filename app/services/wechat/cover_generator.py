@@ -5,7 +5,7 @@ import re
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import httpx
 from PIL import Image, ImageDraw, ImageFont
@@ -21,8 +21,8 @@ COVER_HEIGHT = 383
 
 async def generate_cover_async(
     title: str,
-    output_path: str | None = None,
-    content: str | None = None,
+    output_path: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> str:
     """生成封面图（异步版本）。
 
@@ -31,15 +31,15 @@ async def generate_cover_async(
     return await _generate_ai_cover(title, output_path, content=content)
 
 
-def generate_cover(title: str, output_path: str | None = None) -> str:
+def generate_cover(title: str, output_path: Optional[str] = None) -> str:
     """生成封面图（同步版本），仅生成文字封面。"""
     return _generate_text_cover(title, output_path)
 
 
 async def _generate_ai_cover(
     title: str,
-    output_path: str | None = None,
-    content: str | None = None,
+    output_path: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> str:
     """使用 AI 生成封面图。"""
     settings = get_settings()
@@ -88,7 +88,7 @@ async def _generate_via_chat_completion(
     if not providers:
         raise ValueError("图片生成 API Key 未配置")
 
-    errors: list[str] = []
+    errors: List[str] = []
     for provider in providers:
         label = f"{provider.get('name') or '?'}/{provider['model']}"
         try:
@@ -106,7 +106,7 @@ async def _generate_via_chat_completion(
     raise ValueError("所有图片生成模型均失败: " + " | ".join(errors))
 
 
-def _build_image_providers(settings: Any) -> list[dict[str, str]]:
+def _build_image_providers(settings: Any) -> List[Dict[str, str]]:
     """Load image providers from the JSON config file.
 
     Schema: a JSON array of objects with these fields:
@@ -142,7 +142,7 @@ def _build_image_providers(settings: Any) -> list[dict[str, str]]:
         logger.error("image providers file root must be a JSON array: %s", path)
         return []
 
-    providers: list[dict[str, str]] = []
+    providers: List[Dict[str, str]] = []
     for entry in config:
         if not isinstance(entry, dict):
             continue
@@ -177,7 +177,7 @@ def _redact_url(url: str) -> str:
 
 async def _generate_with_provider(
     client: httpx.AsyncClient,
-    provider: dict[str, str],
+    provider: Dict[str, str],
     prompt: str,
 ) -> bytes:
     """Call one provider. If provider declares a proxy, use a temporary client
@@ -193,7 +193,7 @@ async def _generate_with_provider(
 
 async def _do_call_provider(
     client: httpx.AsyncClient,
-    provider: dict[str, str],
+    provider: Dict[str, str],
     prompt: str,
 ) -> bytes:
     api_url = provider["api_url"].rstrip("/")
@@ -266,7 +266,7 @@ async def _generate_via_images_generation(
 
 async def _image_bytes_from_generation_response(
     client: httpx.AsyncClient,
-    data: dict[str, Any],
+    data: Dict[str, Any],
 ) -> bytes:
     if not data.get("data"):
         raise ValueError("AI 返回的图片数据为空")
@@ -289,10 +289,10 @@ async def _image_bytes_from_generation_response(
 
 async def _image_bytes_from_chat_response(
     client: httpx.AsyncClient,
-    data: dict[str, Any],
+    data: Dict[str, Any],
 ) -> bytes:
     choices = data.get("choices") or []
-    candidates: list[Any] = []
+    candidates: List[Any] = []
 
     for choice in choices:
         message = choice.get("message") or {}
@@ -424,7 +424,7 @@ def _raise_for_status_with_body(response: httpx.Response) -> None:
         ) from exc
 
 
-def _clean_content_excerpt(content: str | None, max_chars: int = 800) -> str:
+def _clean_content_excerpt(content: Optional[str], max_chars: int = 800) -> str:
     """提取适合放入图片生成 prompt 的正文片段。"""
     if not content:
         return ""
@@ -434,7 +434,7 @@ def _clean_content_excerpt(content: str | None, max_chars: int = 800) -> str:
     return text[:max_chars]
 
 
-def _prepare_output_path(output_path: str | None, *, suffix: str, prefix: str) -> Path:
+def _prepare_output_path(output_path: Optional[str], *, suffix: str, prefix: str) -> Path:
     if output_path:
         return Path(output_path)
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False, prefix=prefix)
@@ -463,7 +463,7 @@ def _crop_to_cover_ratio(img: Image.Image) -> Image.Image:
     return img
 
 
-def _generate_text_cover(title: str, output_path: str | None = None) -> str:
+def _generate_text_cover(title: str, output_path: Optional[str] = None) -> str:
     """生成文字封面（兜底方案）。"""
     img = Image.new("RGB", (COVER_WIDTH, COVER_HEIGHT))
     draw = ImageDraw.Draw(img)
@@ -532,7 +532,7 @@ def _draw_wrapped_text(
     fill: tuple,
 ) -> None:
     """自动换行绘制文本。"""
-    lines: list[str] = []
+    lines: List[str] = []
     current_line = ""
     for char in text:
         test_line = current_line + char

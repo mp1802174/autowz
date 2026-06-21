@@ -9,6 +9,7 @@ from app.services.content_length import (
     finalize_article,
 )
 from app.services.llm.client import LLMClient, get_llm_client
+from typing import List
 
 logger = logging.getLogger("autowz.humanizer")
 
@@ -198,7 +199,7 @@ class HumanizerService:
         sentence_end = re.compile(r'([。？！…]+["」）)]*)')
 
         lines = text.split("\n")
-        result: list[str] = []
+        result: List[str] = []
 
         for line in lines:
             stripped = line.strip()
@@ -210,7 +211,7 @@ class HumanizerService:
             # 按句子切分
             parts = sentence_end.split(stripped)
             # 重新组合：把标点黏回句子
-            sentences: list[str] = []
+            sentences: List[str] = []
             buf = ""
             for part in parts:
                 buf += part
@@ -225,7 +226,7 @@ class HumanizerService:
                 continue
 
             # 拆分：每 2-3 句一段
-            chunk: list[str] = []
+            chunk: List[str] = []
             for i, s in enumerate(sentences):
                 chunk.append(s)
                 # 每 2 句拆一次，但如果下一句很短（<15字）则多带一句
@@ -243,7 +244,7 @@ class HumanizerService:
                 result.append("".join(chunk).strip())
 
         # 清理多余空行
-        cleaned: list[str] = []
+        cleaned: List[str] = []
         for line in result:
             if line.strip() == "" and cleaned and cleaned[-1].strip() == "":
                 continue

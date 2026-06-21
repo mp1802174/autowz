@@ -4,6 +4,7 @@ from time import time
 from app.core.config import get_settings
 from app.services.wechat.client import WechatClient
 from app.services.wechat.exceptions import WechatAPIError
+from typing import Optional
 
 logger = logging.getLogger("autowz.wechat.token")
 
@@ -12,7 +13,7 @@ class WechatTokenService:
     def __init__(self, client: WechatClient | None = None) -> None:
         self.settings = get_settings()
         self.client = client or WechatClient()
-        self._cached_token: str | None = None
+        self._cached_token: Optional[str] = None
         self._expires_at: float = 0
 
     async def get_access_token(self, *, force_refresh: bool = False) -> str:

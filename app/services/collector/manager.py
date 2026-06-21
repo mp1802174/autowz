@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from difflib import SequenceMatcher
+from typing import List
 
 from app.services.collector.baidu import BaiduCollector
 from app.services.collector.base import CollectedTopic
@@ -15,12 +16,12 @@ class CollectorManager:
     def __init__(self) -> None:
         self.collectors = [WeiboCollector(), BaiduCollector()]
 
-    async def collect_all(self) -> list[CollectedTopic]:
+    async def collect_all(self) -> List[CollectedTopic]:
         results = await asyncio.gather(
             *[c.collect() for c in self.collectors],
             return_exceptions=True,
         )
-        all_topics: list[CollectedTopic] = []
+        all_topics: List[CollectedTopic] = []
         for result in results:
             if isinstance(result, Exception):
                 logger.warning("采集器出错: %s", result)
@@ -33,9 +34,9 @@ class CollectorManager:
         return deduped
 
     @staticmethod
-    def _deduplicate(topics: list[CollectedTopic], threshold: float = 0.7) -> list[CollectedTopic]:
+    def _deduplicate(topics: List[CollectedTopic], threshold: float = 0.7) -> List[CollectedTopic]:
         """按标题相似度去重，保留热度更高的一条。"""
-        kept: list[CollectedTopic] = []
+        kept: List[CollectedTopic] = []
         for topic in sorted(topics, key=lambda t: t.hot_score, reverse=True):
             is_dup = False
             for existing in kept:

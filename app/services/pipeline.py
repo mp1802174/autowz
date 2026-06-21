@@ -43,6 +43,7 @@ from app.services.publish import (
 )
 from app.services.wechat.cover_generator import generate_cover_async
 from app.services.wechat.reading_guide import build_reading_guide_html
+from typing import Optional
 
 logger = logging.getLogger("autowz.pipeline")
 
@@ -78,7 +79,7 @@ class ArticlePipeline:
     保留旧 API 接口,方便平滑迁移。
     """
 
-    def __init__(self, module_name: str | None = None) -> None:
+    def __init__(self, module_name: Optional[str] = None) -> None:
         self.settings = get_settings()
         self.module = get_module(module_name)
 
@@ -96,11 +97,11 @@ class ArticlePipeline:
         return PublishRouter(channels, min_quality=0.0)
 
     @property
-    def _publish_targets(self) -> list[str]:
+    def _publish_targets(self) -> List[str]:
         raw = self.settings.publish_targets or "wechat"
         return [t.strip() for t in raw.split(",") if t.strip()]
 
-    def _build_reading_guide_html(self, exclude_article_id: int | None = None) -> str:
+    def _build_reading_guide_html(self, exclude_article_id: Optional[int] = None) -> str:
         """构造底部「精彩文章导读」HTML（随机取3篇已发表文章）。"""
         with get_db_session() as session:
             guide_articles = get_random_published_articles(
@@ -192,7 +193,7 @@ class ArticlePipeline:
         error_msg = first.error if first else "所有渠道发布失败"
         raise ValueError(error_msg)
 
-    async def collect_topics(self) -> list[dict]:
+    async def collect_topics(self) -> List[dict]:
         """采集今日新闻池并存入数据库（标题+日期去重）。"""
         news_items = await self.news.fetch_news_pool()
         saved = []
@@ -213,7 +214,7 @@ class ArticlePipeline:
         logger.info("新闻池采集完成，存入 %d 条（去重后）", len(saved))
         return saved
 
-    async def run_batch(self, batch_type: str = "morning", count: int = 1, category: str = None) -> list[dict]:
+    async def run_batch(self, batch_type: str = "morning", count: int = 1, category: str = None) -> List[dict]:
         """执行完整批次
 
         Phase 1: 委托给模块实现,简化为统一调用。

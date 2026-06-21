@@ -2,6 +2,7 @@ import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from typing import Optional
 
 logger = logging.getLogger("autowz.scheduler")
 
@@ -28,7 +29,7 @@ async def _job_collect():
         logger.error("定时采集失败: %s", exc)
 
 
-async def _job_batch(batch_type: str, count: int = 1, module_name: str | None = None):
+async def _job_batch(batch_type: str, count: int = 1, module_name: Optional[str] = None):
     """定时任务：执行模块批次。"""
     from app.services.pipeline import ArticlePipeline
 
@@ -120,7 +121,7 @@ def shutdown_scheduler() -> None:
     _scheduler = None
 
 
-def get_scheduler_status() -> list[dict]:
+def get_scheduler_status() -> List[dict]:
     """获取当前所有定时任务的状态。"""
     scheduler = get_scheduler()
     return [
