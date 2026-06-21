@@ -34,9 +34,15 @@ from app.modules.registry import get_module
 from app.services.collector.search import NewsCollector, NewsItem
 from app.services.guard.blocklist import is_topic_risky
 from app.services.guard.service import GuardService
+from app.services.publish import (
+    ArticleProduct,
+    BaijiahaoChannel,
+    PublishRouter,
+    ToutiaoChannel,
+    WechatChannel,
+)
 from app.services.wechat.cover_generator import generate_cover_async
 from app.services.wechat.reading_guide import build_reading_guide_html
-from app.services.wechat.service import WechatPublishOrchestrator
 
 logger = logging.getLogger("autowz.pipeline")
 
@@ -80,8 +86,19 @@ class ArticlePipeline:
         self.writer = getattr(self.module, "writer", None)
         self.selector = getattr(self.module, "selector", None)
         self.guard = GuardService()
-        self.wechat = WechatPublishOrchestrator()
+        self.router = self._build_router()
         self.news = NewsCollector()
+
+    def _build_router(self) -> PublishRouter:
+        targets = self._publish_targets
+        all_channels = [WechatChannel(), ToutiaoChannel(), BaijiahaoChannel()]
+        channels = [ch for ch in all_channels if ch.name in targets]
+        return PublishRouter(channels, min_quality=0.0)
+
+    @property
+    def _publish_targets(self) -> list[str]:
+        raw = self.settings.publish_targets or "wechat"
+        return [t.strip() for t in raw.split(",") if t.strip()]
 
     def _build_reading_guide_html(self, exclude_article_id: int | None = None) -> str:
         """构造底部「精彩文章导读」HTML（随机取3篇已发表文章）。"""
@@ -119,8 +136,6 @@ class ArticlePipeline:
         )
 
     async def publish(self, request: PublishArticleRequest) -> PublishArticleResponse:
-        # 早期硬拦截：手动话题先过 blocklist，避免浪费 LLM 调用
-        # 高/中风险均阻止生成，避免公众号侧限流
         risky, level, hit = is_topic_risky(request.topic or "")
         if risky:
             logger.warning("publish 拒绝 %s 风险话题 [%s]: %s", level, hit, request.topic)
@@ -139,7 +154,6 @@ class ArticlePipeline:
             logger.warning("文章质量评分 %d < 80，跳过发布", preview.style_score)
             raise ValueError(f"文章质量评分不足 ({preview.style_score}/100)，请人工审核。")
 
-        # 底部导读区块：随机取3篇已发表文章追加到正文末尾
         content_html = preview.content_html
         guide_html = self._build_reading_guide_html()
         if guide_html:
@@ -150,19 +164,33 @@ class ArticlePipeline:
             content=content_html,
         )
 
-        payload = WechatArticlePayload(
+        product = ArticleProduct(
             title=preview.title,
-            author=self.settings.content_author,
             digest=preview.digest,
-            content=content_html,
-            content_source_url=str(request.source_url or ""),
-            thumb_media_id="TO_BE_FILLED",
-            need_open_comment=self.settings.default_comment_open,
-            only_fans_can_comment=self.settings.default_fans_comment_only,
+            content_html=content_html,
+            content_md=preview.content_markdown,
+            author=self.settings.content_author,
+            cover_path=cover_path,
+            quality_score=preview.style_score,
+            ai_disclosure=True,
         )
 
-        result = await self.wechat.publish_article(payload, cover_path)
-        return PublishArticleResponse(title=preview.title, **result.model_dump())
+        results = await self.router.publish(product, targets=self._publish_targets, as_draft=True)
+
+        # 向后兼容: 取第一个成功的结果构造 PublishArticleResponse
+        for r in results.values():
+            if r.ok:
+                return PublishArticleResponse(
+                    title=preview.title,
+                    draft_media_id=r.draft_id or "",
+                    publish_id="",
+                    publish_status=r.status,
+                    article_url=r.url or "",
+                )
+
+        first = next(iter(results.values()), None)
+        error_msg = first.error if first else "所有渠道发布失败"
+        raise ValueError(error_msg)
 
     async def collect_topics(self) -> list[dict]:
         """采集今日新闻池并存入数据库（标题+日期去重）。"""

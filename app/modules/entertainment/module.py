@@ -16,7 +16,6 @@ from app.modules.finance.module import FinanceModule
 from app.services.collector.search import NewsCollector, NewsItem
 from app.services.guard.service import GuardService
 from app.services.selector.service import TopicSelectorService
-from app.services.wechat.service import WechatPublishOrchestrator
 
 
 class EntertainmentModule(FinanceModule):
@@ -36,7 +35,7 @@ class EntertainmentModule(FinanceModule):
         )
         self.writer = EntertainmentWriter(author=AUTHOR, **WRITER_CONFIG)
         self.guard = GuardService()
-        self.wechat = WechatPublishOrchestrator()
+        self.router = self._build_router()
 
     @property
     def module_name(self) -> str:

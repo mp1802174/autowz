@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
     openai_model: str = Field(default="gpt-5.4", alias="OPENAI_MODEL")
 
+    publish_targets: str = Field(default="wechat", alias="PUBLISH_TARGETS")
+
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     mysql_dsn: str = Field(
         default="mysql+pymysql://root:1c8034bf4061cbd6@localhost:3306/autowz?charset=utf8mb4&unix_socket=/tmp/mysql.sock",

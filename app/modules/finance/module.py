@@ -30,11 +30,16 @@ from app.services.collector.search import NewsCollector, NewsItem
 from app.services.guard.blocklist import is_topic_risky
 from app.services.guard.service import GuardService
 from app.services.selector.service import TopicSelectorService
+from app.services.publish import (
+    ArticleProduct,
+    BaijiahaoChannel,
+    PublishRouter,
+    ToutiaoChannel,
+    WechatChannel,
+)
 from app.services.wechat.cover_generator import generate_cover_async
 from app.services.wechat.reading_guide import build_reading_guide_html
-from app.services.wechat.service import WechatPublishOrchestrator
 from app.core.config import get_settings
-from app.models.schemas import WechatArticlePayload
 
 logger = logging.getLogger("autowz.finance.module")
 
@@ -83,7 +88,17 @@ class FinanceModule(BaseContentModule):
         )
         self.writer = DataDrivenWriter(author=AUTHOR, **WRITER_CONFIG)
         self.guard = GuardService()
-        self.wechat = WechatPublishOrchestrator()
+        self.router = self._build_router()
+
+    def _build_router(self) -> PublishRouter:
+        all_channels = [WechatChannel(), ToutiaoChannel(), BaijiahaoChannel()]
+        channels = [ch for ch in all_channels if ch.name in self._publish_targets]
+        return PublishRouter(channels, min_quality=0.0)
+
+    @property
+    def _publish_targets(self) -> list[str]:
+        raw = self.settings.publish_targets or "wechat"
+        return [t.strip() for t in raw.split(",") if t.strip()]
 
     @property
     def module_name(self) -> str:
@@ -255,44 +270,49 @@ class FinanceModule(BaseContentModule):
         )
 
         # 发布
-        payload = WechatArticlePayload(
+        product = ArticleProduct(
             title=draft["title"],
-            author=self.author,
             digest=draft["digest"],
-            content=draft["content_html"],
-            thumb_media_id="TO_BE_FILLED",
-            need_open_comment=self.settings.default_comment_open,
-            only_fans_can_comment=self.settings.default_fans_comment_only,
+            content_html=draft["content_html"],
+            content_md=draft["content_markdown"],
+            author=self.author,
+            cover_path=cover_path,
+            quality_score=draft["style_score"],
+            article_id=article_id,
+            ai_disclosure=True,
         )
 
         with get_db_session() as session:
             update_article_status(session, article_id, "publishing")
 
         try:
-            result = await self.wechat.publish_article(payload, cover_path)
-            final_status = "published" if result.publish_status == "success" else result.publish_status
+            results = await self.router.publish(product, targets=self._publish_targets, as_draft=True)
+
+            any_ok = any(r.ok for r in results.values())
+            final_status = "published" if any_ok else "failed"
 
             with get_db_session() as session:
                 update_article_status(
                     session, article_id, final_status,
-                    content_html=payload.content,
+                    content_html=draft["content_html"],
                 )
-                save_publish_record(
-                    session,
-                    article_id=article_id,
-                    draft_media_id=result.draft_media_id,
-                    publish_id=result.publish_id or "",
-                    article_url=result.article_url or "",
-                    publish_status=result.publish_status,
-                    raw_response=result.model_dump(),
-                    cover_media_id=result.cover_media_id,
-                )
+                for ch_name, r in results.items():
+                    save_publish_record(
+                        session,
+                        article_id=article_id,
+                        draft_media_id=r.draft_id or "",
+                        publish_id="",
+                        article_url=r.url or "",
+                        publish_status=r.status,
+                        raw_response=r.raw if isinstance(r.raw, dict) else {},
+                        cover_media_id="",
+                    )
 
             return {
                 "title": draft["title"],
                 "status": final_status,
                 "article_id": article_id,
-                "publish_result": result.model_dump(),
+                "publish_results": {k: {"ok": v.ok, "status": v.status, "draft_id": v.draft_id, "error": v.error} for k, v in results.items()},
             }
         except Exception:
             with get_db_session() as session:

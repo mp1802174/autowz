@@ -3,6 +3,7 @@
 设计见 docs/multichannel_plan.md。第一纲领(质量第一)通过 Router 的质量门落地。
 """
 from app.services.publish.base import Channel
+from app.services.publish.channels.baijiahao import BaijiahaoChannel
 from app.services.publish.channels.playwright_base import PlaywrightChannel
 from app.services.publish.channels.toutiao import ToutiaoChannel
 from app.services.publish.channels.wechat import WechatChannel
@@ -18,4 +19,5 @@ __all__ = [
     "WechatChannel",
     "PlaywrightChannel",
     "ToutiaoChannel",
+    "BaijiahaoChannel",
 ]
