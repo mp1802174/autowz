@@ -1,10 +1,10 @@
 """头条号渠道(Playwright + 登录态)。
 
-发布流程(2026-06-21 修正):
+发布流程:
   打开图文发布页(获取页面上下文与 cookie)→
-  用 page.evaluate 直接调用 /mp/agw/article/publish 接口,save=1。
-  不再依赖失焦触发的"自动保存"(save=0),因为新手账号被拒(err_no=7050)。
-始终只存草稿(从不点"预览并发布"),草稿优先、安全。
+  用 page.evaluate 直接调用 /mp/agw/article/publish 接口。
+  - as_draft=True: save=1 保存草稿
+  - as_draft=False: save=0 直接发布(需账号权限)
 
 TODO(P1):正文改富文本(HTML/图片)而非纯文本;ai_disclosure 注入方式优化。
 """
@@ -60,12 +60,15 @@ class ToutiaoChannel(PlaywrightChannel):
             "tuwen_wtt_transfer_switch": "1",
         }, ensure_ascii=False)
 
+        # save=1: 保存草稿, save=0: 直接发布
+        save_mode = "1" if as_draft else "0"
+
         result = await page.evaluate(
-            """async ([title, content, extra]) => {
+            """async ([title, content, extra, save]) => {
                 const fd = new URLSearchParams();
                 fd.append('title', title);
                 fd.append('content', content);
-                fd.append('save', '1');
+                fd.append('save', save);
                 fd.append('source', '29');
                 fd.append('article_ad_type', '2');
                 fd.append('claim_exclusive', '0');
@@ -93,19 +96,30 @@ class ToutiaoChannel(PlaywrightChannel):
                 });
                 return await resp.json();
             }""",
-            [title, content, extra],
+            [title, content, extra, save_mode],
         )
 
         err_no = result.get("err_no")
-        pgc_id = str((result.get("data") or {}).get("pgc_id") or "0")
+        data = result.get("data") or {}
+        pgc_id = str(data.get("pgc_id") or "0")
+        item_id = str(data.get("item_id") or "")
         msg = result.get("message", "")
 
         if err_no == 0 and pgc_id not in ("0", ""):
-            logger.info("头条草稿已保存 pgc_id=%s", pgc_id)
-            return PublishResult(channel=self.name, ok=True, status="draft_saved", draft_id=pgc_id)
+            if as_draft:
+                logger.info("头条草稿已保存 pgc_id=%s", pgc_id)
+                return PublishResult(channel=self.name, ok=True, status="draft_saved", draft_id=pgc_id)
+            else:
+                logger.info("头条文章已发布 pgc_id=%s item_id=%s", pgc_id, item_id)
+                article_url = f"https://www.toutiao.com/article/{item_id}/" if item_id else ""
+                return PublishResult(
+                    channel=self.name, ok=True, status="published",
+                    draft_id=pgc_id, url=article_url, raw=result
+                )
 
-        logger.error("头条保存失败 err_no=%s msg=%s", err_no, msg)
+        logger.error("头条发布失败 err_no=%s msg=%s", err_no, msg)
         return PublishResult(
-            channel=self.name, ok=False, status="save_failed",
-            error=f"头条保存失败 err_no={err_no} msg={msg}",
+            channel=self.name, ok=False, status="publish_failed",
+            error=f"头条发布失败 err_no={err_no} msg={msg}",
+            raw=result,
         )
