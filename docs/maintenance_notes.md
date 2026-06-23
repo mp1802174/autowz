@@ -157,3 +157,88 @@ PY
 - 如需验证头条草稿参数，优先读官方前端 JS 或做无提交检查，不要反复提交文章。
 - `.env` 已设置三渠道发布，但 `.env` 通常不入 Git；迁移机器时要手动确认 `PUBLISH_TARGETS`。
 
+## 2026-06-23：质量防线重构 + 项目级prompt架构 + gpt-5.5首选
+
+### Git 提交
+
+- `a95dbfe`：内容质量防线 + gpt-5.5 首选模型 + 三时段定时
+- `10f4056`：项目级prompt架构 + 质量闸柔性字数 + 头条重试 + 第一人称/媒体名禁令
+
+当前分支：`feat/quality-gate-and-gpt55`(从 main 开出,未合回)
+
+### 触发背景
+
+6-22 文章《别了老将！中超保级队的阵容大清洗从来不讲体面》(id=337)出现严重退化:正文末段 490 字一句到底、结尾"消失在。"被硬截断,却以 style_score=85/risk=low 通过审核并存入三渠道草稿。排查发现四层防线同时失守:LLM 退化、截断补句号美容废稿、风控无质量维度、style_score 硬编码 85。
+
+### 新增文件
+
+| 文件 | 用途 |
+|------|------|
+| `app/services/quality/` | 规则版质量闸(check_quality),拦截退化长句/断头结尾/畸形段落/片段重复/字数不足 |
+| `app/services/prompts/base.py` | 项目级 BASE_SYSTEM_PROMPT,所有模块共享的基础约束 |
+| `tests/test_quality_checker.py` | 质量闸单测(含退化文本拦截用例) |
+
+### 架构变更
+
+1. **质量闸接入生产链路**:`finance/module.py` 的 `_process_single_article` 先过质量闸,不合格重生成 1 次仍不合格→弃稿。style_score 从硬编码 85 改为 check_quality 真实分。
+
+2. **截断逻辑修复**:`content_length.py` 的 `trim_markdown_to_max_chars` 不再字符级硬切+补句号伪装完整,改为只裁到原文已有句末标点。
+
+3. **风控增强**:`guard/service.py` 新增"语义质量"维度,LLM 失败不再默认放行(规则质量分兜底)。
+
+4. **字数策略**:差<10%只扣分不否决(差几个字≠低质),差>10%才硬否决。
+
+5. **头条发布重试**:`toutiao.py` 发布 API 调用失败自动重试 1 次。
+
+### 定时配置变更
+
+`entertainment/config.py`:
+```python
+SCHEDULE_SLOTS = [
+    ScheduleSlot(hour=12, minute=5, batch_type="noon", count=1),
+    ScheduleSlot(hour=15, minute=5, batch_type="afternoon", count=1),
+    ScheduleSlot(hour=18, minute=5, batch_type="evening", count=1),
+]
+```
+时间为北京时间(scheduler.py 已显式锁 `timezone="Asia/Shanghai"`,机器本地 JST)。
+
+### 模型配置
+
+`.env`(不入 git):
+```
+OPENAI_MODEL=sharedchat/gpt-5.5
+LLM_FALLBACK_MODELS=gpt-5.5,claude-opus-4-6,kimi-k2.6,deepseek-v4-pro,kimi-k2p5,gpt-oss-120b,google/gemma-4-31b-it
+```
+
+8317(本机 CLIProxyAPI,`/root/cc/CLIProxyAPI`,另一 git 仓库):
+- `config.yaml`:sharedchat 配为 `codex-api-key` 上游(prefix=sharedchat),非 openai-compat。`disable-cooling: false`(429 指数退避,503 固定 1min)。
+- auth-dir:`/root/.cli-proxy-api`(OAuth token 文件存放,目前有 29 个 codex token)。
+- systemd:`cliproxyapi.service`
+
+### 已知问题
+
+- **头条号偶发超时**:15:05 批次头条超时,后续冒烟测试通过。大概率偶发网络波动。cookie(sid_guard/passport_auth_status 等)均未过期(最近 26 天后)。
+- **gpt-5.5 OAuth 已可用但 sharedchat 公益站不稳定**:经 8317 OAuth 29 token 的 `gpt-5.5` 稳定可用;`sharedchat/gpt-5.5` 静态 key 走 sharedchat 公益站,额度限流频繁。fallback 链设计为 sharedchat→OAuth→claude→... 自动切换。
+- **生图 fallback 未完成**:sharedchat 的 gpt-image-2 接口协议不兼容(需适配 Codex Responses API),暂搁置。
+
+### 验证命令
+
+```bash
+# 查看服务
+systemctl status autowz cliproxyapi --no-pager
+
+# 查看模型可用性
+.venv/bin/python -c "
+import asyncio
+from openai import AsyncOpenAI
+async def t(m):
+    c=AsyncOpenAI(api_key='sk-760516666',base_url='http://140.238.201.162:8317/v1')
+    s=await c.chat.completions.create(model=m,messages=[{'role':'user','content':'hi'}],max_tokens=5)
+    print(f'{m}: {s.choices[0].message.content}')
+asyncio.run(t('gpt-5.5'))
+"
+
+# 跑测试
+.venv/bin/python -m pytest -q
+```
+
