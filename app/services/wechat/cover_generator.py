@@ -46,16 +46,19 @@ async def _generate_ai_cover(
 
     clean_title = title.replace("今天怎么看｜", "").replace("今天怎么看|", "")
 
-    # 构建 prompt：根据标题生成相关场景图片
+    # 构建 prompt：根据标题生成相关场景图片。
+    # 第一原则:封面图绝对不能含文字。注意——部分生图模型(如 sensenova)会把
+    # prompt 里显著的文本/大写指令/引号标题直接渲染成图上文字,所以:
+    #   1. 不要把中文标题原文塞进 prompt(否则会被画上去),只用它描述画面;
+    #   2. "无文字"约束用一句平实英文放末尾,不用大写、不用引号包裹。
     prompt = (
-        f"Create a professional, visually striking cover image for a Chinese news article about: {clean_title}. "
-        f"Style: photorealistic or modern illustration, clean composition, cinematic lighting. "
-        f"Focus on the main subject matter mentioned in the title. "
-        f"The image must include concrete visual objects directly related to the key words in the title; "
-        f"for example, if the title mentions investment gold, include investment gold bars, and if it mentions kites, include kites. "
-        f"Colors: vibrant but professional, suitable for news media. "
-        f"Absolutely no text, letters, numbers, logos, captions, labels, or watermarks anywhere in the image. "
-        f"High quality, 16:9 aspect ratio."
+        f"A professional, visually striking news cover image. "
+        f"Subject: concrete visual objects and scenes related to this topic — {clean_title} "
+        f"(depict the objects/scene only, do not write this topic as text). "
+        f"Style: photorealistic or modern illustration, clean composition, cinematic lighting, "
+        f"vibrant but professional colors suitable for news media, 16:9 aspect ratio, high quality. "
+        f"The image is purely visual with no text, no letters, no Chinese characters, "
+        f"no numbers, no logos, no captions, no watermarks anywhere."
     )
 
     timeout = httpx.Timeout(180.0, connect=30.0)
@@ -159,6 +162,8 @@ def _build_image_providers(settings: Any) -> List[Dict[str, str]]:
             models = [str(m).strip() for m in models_raw if str(m).strip()]
         proxy = str(entry.get("proxy") or "").strip()
         name = str(entry.get("name") or "").strip()
+        # 可选:某些 provider(如 sensenova)要求特定 size,不传或传 1024x1024 会 400。
+        size = str(entry.get("size") or "").strip()
         for model in models:
             providers.append({
                 "name": name,
@@ -166,6 +171,7 @@ def _build_image_providers(settings: Any) -> List[Dict[str, str]]:
                 "api_url": api_url,
                 "model": model,
                 "proxy": proxy,
+                "size": size,
             })
 
     return providers
@@ -209,10 +215,16 @@ async def _do_call_provider(
     if not image_api_url.endswith("/images/generations"):
         image_api_url = f"{image_api_url}/images/generations"
 
+    gen_payload = {"model": model, "prompt": prompt, "n": 1}
+    # 部分 provider(如 sensenova)要求显式且特定的 size,否则 400。
+    size = provider.get("size") or ""
+    if size:
+        gen_payload["size"] = size
+
     response = await client.post(
         image_api_url,
         headers=headers,
-        json={"model": model, "prompt": prompt, "n": 1},
+        json=gen_payload,
         timeout=120.0,
     )
 

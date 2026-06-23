@@ -3,7 +3,9 @@
     "name": "speak-codes",
     "api_url": "https://api.speak.codes/v1/images/generations",
     "api_key": "sk-0qsOp3yqCPT4dHVTAEvN9xJ1032i89JUr653pTyGzkFQPCob",
-    "models": ["gpt-image-2"],
+    "models": [
+      "gpt-image-2"
+    ],
     "proxy": "socks5://asd:760516@154.58.233.111:7899",
     "enabled": true
   },
@@ -11,7 +13,10 @@
     "name": "jiuuij",
     "api_url": "https://jiuuij.de5.net/v1/images/generations",
     "api_key": "sk-9ci8mLcRcqFQR94jM1GH6t0bUeQIcQM5g7K4t9uPU70tNqFp",
-    "models": ["gpt-image-2", "grok-imagine-image-lite"],
+    "models": [
+      "gpt-image-2",
+      "grok-imagine-image-lite"
+    ],
     "proxy": "",
     "enabled": true
   },
@@ -19,7 +24,10 @@
     "name": "new-api-abrdns",
     "api_url": "https://new-api.abrdns.com/v1/images/generations",
     "api_key": "sk-oM7zL3pBfFkKCLkwSRxXxcfeHpkTvUoVy16Pvksnq3PQexA7",
-    "models": ["gpt-image-2_1k", "grok-imagine-image-lite"],
+    "models": [
+      "gpt-image-2_1k",
+      "grok-imagine-image-lite"
+    ],
     "proxy": "",
     "enabled": true
   },
@@ -27,15 +35,21 @@
     "name": "sensenova",
     "api_url": "https://token.sensenova.cn/v1/images/generations",
     "api_key": "sk-fH8Ai2NkOPBZTsLHs4fqwqWV7IAbQJHj",
-    "models": ["sensenova-u1-fast"],
+    "models": [
+      "sensenova-u1-fast"
+    ],
     "proxy": "",
-    "enabled": true
+    "enabled": true,
+    "size": "2496x1664"
   },
   {
     "name": "api-42w-shop",
     "api_url": "https://api.42w.shop/v1/images/generations",
     "api_key": "sk-gkbnqErfPI7qKxPdmUQVRbaYcQGjvxCyOGbHoPITf02DVtQe",
-    "models": ["gpt-image-1.5", "grok-imagine-image"],
+    "models": [
+      "gpt-image-1.5",
+      "grok-imagine-image"
+    ],
     "proxy": "",
     "enabled": false
   }
