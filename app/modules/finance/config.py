@@ -34,9 +34,9 @@ SELECTOR_CONFIG = {
 
 # 写作配置
 WRITER_CONFIG = {
-    "min_chars": 650,
-    "max_chars": 750,
-    "temperature": 0.85,
+    "min_chars": 600,
+    "max_chars": 800,
+    "temperature": 0.72,
     "frequency_penalty": 0.3,
     "presence_penalty": 0.2,
     "style": "data_driven_analysis",

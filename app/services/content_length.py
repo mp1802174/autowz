@@ -1,17 +1,58 @@
 import re
 from typing import List
 
-# OPTIMIZE: 字数从200-300提升到650-750
-MIN_ARTICLE_CHARS = 650
-MAX_ARTICLE_CHARS = 750
+# OPTIMIZE: 字数控制收紧到600-800，质量闸负责判废。
+MIN_ARTICLE_CHARS = 600
+MAX_ARTICLE_CHARS = 800
 
 
 def count_cn_chars(text: str) -> int:
     return sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
 
 
+SENTENCE_ENDINGS = "。！？!?…"
+CLOSING_CHARS = "”』」)）\"'"
+
+
+def _prefix_with_cn_limit(text: str, max_chars: int) -> str:
+    """返回不超过 max_chars 个中文字符的前缀；不负责补标点。"""
+    chars: List[str] = []
+    cn_count = 0
+    for ch in text:
+        if "\u4e00" <= ch <= "\u9fff":
+            cn_count += 1
+            if cn_count > max_chars:
+                break
+        chars.append(ch)
+    return "".join(chars)
+
+
+def _trim_to_complete_sentence(text: str, max_chars: int) -> str:
+    """裁到 max_chars 内最后一个完整句末，避免硬切后补句号伪装完整。"""
+    prefix = _prefix_with_cn_limit(text, max_chars).rstrip()
+    if not prefix:
+        return ""
+
+    last_end = -1
+    for i, ch in enumerate(prefix):
+        if ch in SENTENCE_ENDINGS:
+            last_end = i
+
+    if last_end < 0:
+        return ""
+
+    end = last_end + 1
+    while end < len(prefix) and prefix[end] in CLOSING_CHARS:
+        end += 1
+    return prefix[:end].rstrip()
+
+
 def trim_markdown_to_max_chars(text: str, max_chars: int = MAX_ARTICLE_CHARS) -> str:
-    """将正文裁剪到指定中文字符数以内，优先保留段落结构。"""
+    """将正文裁剪到指定中文字符数以内，优先保留完整段落/完整句。
+
+    关键原则：不能字符级硬切后补句号。裁剪只能落在原文已有句末标点；
+    如果裁后过短，由质量校验判废并触发重生成/弃稿。
+    """
     text = (text or "").strip()
     if not text:
         return text
@@ -23,28 +64,26 @@ def trim_markdown_to_max_chars(text: str, max_chars: int = MAX_ARTICLE_CHARS) ->
     if len(paragraphs) <= 1:
         paragraphs = [line.strip() for line in text.splitlines() if line.strip()]
 
-    if len(paragraphs) > 1:
-        ending = paragraphs[-1]
-        body = paragraphs[:-1]
-        while body:
-            candidate = "\n\n".join(body + [ending]).strip()
-            if count_cn_chars(candidate) <= max_chars:
-                return candidate
-            body.pop(-1)
+    kept: List[str] = []
+    for paragraph in paragraphs:
+        candidate = "\n\n".join(kept + [paragraph]).strip()
+        if count_cn_chars(candidate) <= max_chars:
+            kept.append(paragraph)
+            continue
 
-    chars: List[str] = []
-    cn_count = 0
-    for ch in text:
-        if "\u4e00" <= ch <= "\u9fff":
-            cn_count += 1
-            if cn_count > max_chars:
-                break
-        chars.append(ch)
+        used = count_cn_chars("\n\n".join(kept))
+        remaining = max_chars - used
+        if remaining > 0:
+            partial = _trim_to_complete_sentence(paragraph, remaining)
+            if partial:
+                kept.append(partial)
+        break
 
-    trimmed = "".join(chars).rstrip("，、；：,.!?！？ \n")
-    if trimmed and trimmed[-1] not in "。！？!?\n":
-        trimmed += "。"
-    return trimmed
+    result = "\n\n".join(kept).strip()
+    if result:
+        return result
+
+    return _trim_to_complete_sentence(text, max_chars)
 
 
 def _strip_count_suffix(text: str) -> str:

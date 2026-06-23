@@ -14,6 +14,7 @@ import markdown as md_lib
 
 from app.services.content_length import count_cn_chars, finalize_article
 from app.services.llm.client import LLMClient, get_llm_client
+from app.services.quality import check_quality
 
 logger = logging.getLogger("autowz.entertainment.writer")
 
@@ -33,6 +34,7 @@ SYSTEM_PROMPT_TEMPLATE = """你是《现象观察》的娱乐观察作者，给�
 - 口语化、有态度、有网感，但不要低俗、不要攻击个人。
 - 未经证实的恋情、隐私、爆料，只能写“网传/传闻不可当事实”，不能当真相扩写。
 - 每段1-3句，节奏快。
+- 单句不超过80个中文汉字；接近80字必须拆成两句。
 
 ## 推荐结构
 1. 抓人开头：一句话点出最大看点或反差。
@@ -47,9 +49,11 @@ SYSTEM_PROMPT_TEMPLATE = """你是《现象观察》的娱乐观察作者，给�
 - 财经政治理论框架。
 - 关注、点赞、转发引导。
 - 编造票房、收视、片酬、恋情、隐私细节。
+- 超长句堆叠、无标点长段、断头结尾。
 
 ## 字数控制
 - 全文严格{min_chars}-{max_chars}字，中文汉字计数，标点不计。
+- 最后一段必须是完整句，不能半句收尾。
 
 ## 输出格式
 只输出：
@@ -71,7 +75,7 @@ class EntertainmentWriter:
         author: str,
         llm_client: Optional[LLMClient] = None,
         *,
-        min_chars: int = 650,
+        min_chars: int = 600,
         max_chars: int = 800,
         temperature: float = 0.7,
         frequency_penalty: float = 0.0,
@@ -112,6 +116,8 @@ class EntertainmentWriter:
             f"- 禁止出现素材中没有的具体数字(票房/收视/播放量/片酬/年龄/百分比),没有确切来源就用'多平台''大量''明显'等模糊表述\n"
             f"- 不要财经政治理论腔，不要古文典故\n"
             f"- 每段1-3句，口语化，有态度\n"
+            f"- 单句不超过80个中文汉字;长句必须拆短,不要无标点长段\n"
+            f"- 最后一段必须完整收束,不能半句截断\n"
             f"- 标题12-24字，句式不要套路化:疑问/悬念/反差/直陈中挑最贴切的一种,别每篇都同一个模板,不标题党"
         )
 
@@ -119,7 +125,7 @@ class EntertainmentWriter:
             self.system_prompt,
             user_prompt,
             temperature=self.temperature,
-            max_tokens=3000,
+            max_tokens=1500,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
         )
@@ -138,12 +144,26 @@ class EntertainmentWriter:
             )
 
         logger.info("娱乐文章生成完成: %s (%d字, 最大%d字)", title, cn_chars, self.max_chars)
+        quality = check_quality(
+            title,
+            content_md,
+            min_chars=self.min_chars,
+            max_chars=self.max_chars,
+        )
+        if not quality.passed:
+            logger.warning(
+                "娱乐文章规则质量分偏低: %s score=%s reasons=%s",
+                title,
+                quality.score,
+                "; ".join(quality.reasons),
+            )
+
         return {
             "title": title,
             "digest": digest,
             "content_markdown": content_md,
             "content_html": content_html,
-            "style_score": 85,
+            "style_score": quality.score,
         }
 
     @staticmethod

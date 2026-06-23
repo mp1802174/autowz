@@ -22,6 +22,7 @@ from app.services.content_length import (
     finalize_article,
 )
 from app.services.llm.client import LLMClient, get_llm_client
+from app.services.quality import check_quality
 
 logger = logging.getLogger("autowz.finance.writer")
 
@@ -68,6 +69,7 @@ SYSTEM_PROMPT_TEMPLATE = """你是"现象观察"财经观察机构的数据分�
 
 ### 必须做到:
 - 句子长短交错,每段1-3句
+- 单句不超过80个中文汉字;接近80字必须拆成两句
 - 偶尔1句独立成段制造节奏
 - 具体数字+单位(不说"很多",说"155.4万辆")
 - 口语化转折("说句不中听的""实际情况是")
@@ -82,10 +84,12 @@ SYSTEM_PROMPT_TEMPLATE = """你是"现象观察"财经观察机构的数据分�
 - 公知体(看似中立实则站西方立场)
 - 空洞抒情和骑墙式总结
 - 超过3句的段落(必须拆开)
+- 超长句堆叠、无标点长段、断头结尾
 
 ## 字数控制
 - 全文严格{min_chars}-{max_chars}字(中文汉字,标点不计)
 - 宁可少写几句精炼有力,也不凑字数注水
+- 最后一段必须是完整句,不能半句收尾
 
 ## 输出格式
 只输出:
@@ -163,6 +167,8 @@ class DataDrivenWriter:
             f"- 禁止'从市场逻辑看'套话\n"
             f"- 禁止AI套话和整齐排比\n"
             f"- 每段1-3句,偶尔1句独立成段\n"
+            f"- 单句不超过80个中文汉字;长句必须拆短,不要无标点长段\n"
+            f"- 最后一段必须完整收束,不能半句截断\n"
             f"- 标题12-20字,句式不要每篇雷同(数字/反差/疑问/直陈轮换挑最贴切的一种),不标题党"
         )
 
@@ -170,7 +176,7 @@ class DataDrivenWriter:
             self.system_prompt,
             user_prompt,
             temperature=self.temperature,
-            max_tokens=3000,
+            max_tokens=1500,
             frequency_penalty=self.frequency_penalty,
             presence_penalty=self.presence_penalty,
         )
@@ -195,13 +201,26 @@ class DataDrivenWriter:
             title, cn_chars, self.max_chars,
         )
 
-        # Phase 1: 单次生成,style_score 提升到 85(因为去除了双LLM的AI指纹)
+        quality = check_quality(
+            title,
+            content_md,
+            min_chars=self.min_chars,
+            max_chars=self.max_chars,
+        )
+        if not quality.passed:
+            logger.warning(
+                "文章规则质量分偏低: %s score=%s reasons=%s",
+                title,
+                quality.score,
+                "; ".join(quality.reasons),
+            )
+
         return {
             "title": title,
             "digest": digest,
             "content_markdown": content_md,
             "content_html": content_html,
-            "style_score": 85,
+            "style_score": quality.score,
         }
 
     @staticmethod

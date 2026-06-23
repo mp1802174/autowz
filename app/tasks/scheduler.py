@@ -4,6 +4,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from typing import List, Optional
 
+# 定时统一用北京时区。机器本地是 JST,若不显式传 timezone,CronTrigger 不继承
+# scheduler 的 Asia/Shanghai,会按机器 JST 触发(实测下次执行落在 +09:00),
+# 导致比预期早 1 小时。slot.hour 一律按北京时间填写。
+SCHEDULE_TZ = "Asia/Shanghai"
+
 logger = logging.getLogger("autowz.scheduler")
 
 _scheduler: Optional[AsyncIOScheduler] = None
@@ -81,7 +86,7 @@ def init_scheduler() -> AsyncIOScheduler:
         job_id = f"batch_{module_name}_{slot.batch_type}"
         scheduler.add_job(
             _job_batch,
-            CronTrigger(hour=slot.hour, minute=slot.minute),
+            CronTrigger(hour=slot.hour, minute=slot.minute, timezone=SCHEDULE_TZ),
             args=[slot.batch_type, slot.count, module_name],
             id=job_id,
             replace_existing=True,
@@ -98,7 +103,7 @@ def init_scheduler() -> AsyncIOScheduler:
     # 公众号已发布文章同步:每日 03:17(避开整点降低风控,凌晨流量低)
     scheduler.add_job(
         _job_sync_published,
-        CronTrigger(hour=3, minute=17),
+        CronTrigger(hour=3, minute=17, timezone=SCHEDULE_TZ),
         id="sync_published_articles",
         replace_existing=True,
     )

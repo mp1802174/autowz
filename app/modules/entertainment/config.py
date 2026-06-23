@@ -30,14 +30,19 @@ SELECTOR_CONFIG = {
 }
 
 WRITER_CONFIG = {
-    "min_chars": 650,
+    "min_chars": 600,
     "max_chars": 800,
-    "temperature": 0.85,
+    "temperature": 0.72,
     "frequency_penalty": 0.3,
     "presence_penalty": 0.2,
 }
 
 # 先建立娱乐模块但默认不启用；只有 ACTIVE_MODULE=entertainment 或显式 ArticlePipeline("entertainment") 才会用。
+# 时间为北京时间(调度器固定 Asia/Shanghai,自动换算机器时区)。
+# 三个时段贴合 sharedchat/gpt-5.5 公益站额度重置窗口(北京 12/15/18 点重置后约1小时充足),
+# 错后 5 分钟避开整点抢额度高峰;各时段独立 batch_type,避免 job_id 冲突。
 SCHEDULE_SLOTS = [
-    ScheduleSlot(hour=16, minute=20, batch_type="daily", count=1),
+    ScheduleSlot(hour=12, minute=5, batch_type="noon", count=1),
+    ScheduleSlot(hour=15, minute=5, batch_type="afternoon", count=1),
+    ScheduleSlot(hour=18, minute=5, batch_type="evening", count=1),
 ]

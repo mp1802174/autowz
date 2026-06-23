@@ -29,6 +29,7 @@ from app.services.collector.search import NewsCollector, NewsItem
 from app.services.guard.blocklist import is_topic_risky
 from app.services.guard.service import GuardService
 from app.services.selector.service import TopicSelectorService
+from app.services.quality import QualityResult, check_quality
 from app.services.publish import (
     ArticleProduct,
     BaijiahaoChannel,
@@ -151,6 +152,42 @@ class FinanceModule(BaseContentModule):
 
         return article
 
+    def _check_draft_quality(self, draft: dict) -> QualityResult:
+        """规则质量闸：返回 QualityResult，并用真实分数覆盖 style_score。"""
+        result = check_quality(
+            draft.get("title", ""),
+            draft.get("content_markdown", ""),
+            min_chars=getattr(self.writer, "min_chars", 600),
+            max_chars=getattr(self.writer, "max_chars", 800),
+        )
+        draft["style_score"] = result.score
+        return result
+
+    async def _generate_quality_checked_article(self, news_item: NewsItem) -> tuple[dict, QualityResult]:
+        """生成文章并过质量闸；不合格只重生成 1 次。"""
+        last_draft: dict | None = None
+        last_quality = None
+        for attempt in (1, 2):
+            draft = await self.generate_article(news_item)
+            quality = self._check_draft_quality(draft)
+            last_draft = draft
+            last_quality = quality
+            if quality.passed:
+                if attempt > 1:
+                    logger.info("重生成后质量通过: %s score=%s", draft.get("title"), quality.score)
+                return draft, quality
+
+            logger.warning(
+                "文章质量不合格 attempt=%d title=%s score=%s reasons=%s",
+                attempt,
+                draft.get("title"),
+                quality.score,
+                "; ".join(quality.reasons),
+            )
+
+        assert last_draft is not None and last_quality is not None
+        return last_draft, last_quality
+
     async def run_batch(self, count: int = 1) -> List[dict]:
         """执行完整批次"""
         # 1. 采集新闻池
@@ -216,10 +253,11 @@ class FinanceModule(BaseContentModule):
             )
             topic_id = db_topic.id
 
-        # 生成文章
-        draft = await self.generate_article(news_item)
+        # 生成文章并过质量闸：不合格重生成 1 次，仍不合格则弃稿不发布。
+        draft, quality = await self._generate_quality_checked_article(news_item)
 
         # 存文章
+        initial_status = "drafted" if quality.passed else "quality_rejected"
         with get_db_session() as session:
             db_article = save_article(
                 session,
@@ -230,9 +268,25 @@ class FinanceModule(BaseContentModule):
                 content_md=draft["content_markdown"],
                 content_html=draft["content_html"],
                 style_score=draft["style_score"],
-                status="drafted",
+                status=initial_status,
             )
             article_id = db_article.id
+
+        if not quality.passed:
+            logger.warning(
+                "文章最终质量不合格，弃稿不发布: article_id=%s title=%s score=%s reasons=%s",
+                article_id,
+                draft.get("title"),
+                quality.score,
+                "; ".join(quality.reasons),
+            )
+            return {
+                "title": draft["title"],
+                "status": "quality_rejected",
+                "article_id": article_id,
+                "quality_score": quality.score,
+                "quality_reasons": quality.reasons,
+            }
 
         # Phase 1: 不再调用 humanizer,直接标记为 humanized
         with get_db_session() as session:
