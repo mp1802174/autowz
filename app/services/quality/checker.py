@@ -97,8 +97,15 @@ def check_quality(
 
     # 1) 字数不足/超限
     if cn < min_chars:
-        reasons.append(f"字数不足: {cn} < {min_chars}")
-        score -= 25
+        shortage = min_chars - cn
+        if shortage <= min_chars * 0.10:
+            # 差不到10%:轻微扣分但不硬否决(差几个字不等于低质)
+            reasons.append(f"字数略少: {cn} < {min_chars} (差{shortage}字)")
+            score -= 10
+        else:
+            # 差超过10%:严重不足,扣分且硬否决
+            reasons.append(f"字数严重不足: {cn} < {min_chars} (差{shortage}字)")
+            score -= 25
     elif cn > max_chars:
         reasons.append(f"字数超限: {cn} > {max_chars}")
         score -= 15
@@ -151,7 +158,7 @@ def check_quality(
 
     score = max(0, min(100, score))
     passed = score >= 80 and not any(
-        r.startswith(("结尾未自然收束", "存在退化超长句", "字数不足", "字数超限"))
+        r.startswith(("结尾未自然收束", "存在退化超长句", "字数严重不足", "字数超限"))
         for r in reasons
     )
     return QualityResult(passed=passed, score=score, reasons=reasons)

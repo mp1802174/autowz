@@ -9,6 +9,7 @@ TODO(P1):正文改富文本(HTML/图片)而非纯文本;ai_disclosure 注入方�
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -98,6 +99,32 @@ class ToutiaoChannel(PlaywrightChannel):
             "height": image.get("image_height") or 383,
         }] if image_uri else []
 
+        # 发布 API 调用(可重试); page.goto 和上传不走重试(超时/网络类异常由上层 PlaywrightChannel 兜底)
+        for attempt in (1, 2):
+            result = await self._call_publish_api(page, title, content, word_cnt, covers)
+            err_no = result.get("err_no", result.get("code"))
+            data = result.get("data") or {}
+            pgc_id = str(data.get("pgc_id") or data.get("pgcId") or "")
+            msg = result.get("message") or result.get("reason", "")
+
+            if err_no == 0 and pgc_id not in ("0", ""):
+                logger.info("头条草稿已保存 pgc_id=%s attempt=%d", pgc_id, attempt)
+                return PublishResult(channel=self.name, ok=True, status="draft_saved",
+                                     draft_id=pgc_id, raw=result)
+
+            if attempt == 1:
+                logger.warning("头条发布失败 attempt=1 err_no=%s msg=%s, 2秒后重试", err_no, msg)
+                await asyncio.sleep(2)
+
+        logger.error("头条发布失败(已重试1次) err_no=%s msg=%s", err_no, msg)
+        return PublishResult(
+            channel=self.name, ok=False, status="publish_failed",
+            error=f"头条发布失败(已重试) err_no={err_no} msg={msg}",
+            raw=result,
+        )
+
+    async def _call_publish_api(self, page, title: str, content: str, word_cnt: int, covers: list) -> dict:
+        """调用头条发布 API(抽取为独立方法以便重试)。"""
         extra = json.dumps({
             "content_source": 100000000402,
             "content_word_cnt": word_cnt,
@@ -116,7 +143,7 @@ class ToutiaoChannel(PlaywrightChannel):
         # 永远保存草稿，真实发布必须人工审核后手动操作。
         save_mode = self.DRAFT_SAVE_MODE
 
-        result = await page.evaluate(
+        return await page.evaluate(
             """async ([title, content, extra, save, covers]) => {
                 const fd = new URLSearchParams();
                 fd.append('title', title);
@@ -152,19 +179,3 @@ class ToutiaoChannel(PlaywrightChannel):
             [title, content, extra, save_mode, covers],
         )
 
-        err_no = result.get("err_no", result.get("code"))
-        data = result.get("data") or {}
-        pgc_id = str(data.get("pgc_id") or data.get("pgcId") or "0")
-        item_id = str(data.get("item_id") or "")
-        msg = result.get("message") or result.get("reason", "")
-
-        if err_no == 0 and pgc_id not in ("0", ""):
-            logger.info("头条草稿已保存 pgc_id=%s", pgc_id)
-            return PublishResult(channel=self.name, ok=True, status="draft_saved", draft_id=pgc_id, raw=result)
-
-        logger.error("头条发布失败 err_no=%s msg=%s", err_no, msg)
-        return PublishResult(
-            channel=self.name, ok=False, status="publish_failed",
-            error=f"头条发布失败 err_no={err_no} msg={msg}",
-            raw=result,
-        )
