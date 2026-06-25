@@ -14,7 +14,9 @@ import logging
 import re
 import base64
 import os
+import uuid
 from pathlib import Path
+from urllib.parse import quote
 
 from app.services.publish.channels.playwright_base import PlaywrightChannel
 from app.services.publish.product import ArticleProduct, PublishResult
@@ -37,20 +39,85 @@ class BaijiahaoChannel(PlaywrightChannel):
             flags=re.I | re.S,
         )
 
+    @staticmethod
+    def _image_size(cover_path: str | None) -> tuple[int, int]:
+        if cover_path and Path(cover_path).exists():
+            try:
+                from PIL import Image
+                with Image.open(cover_path) as img:
+                    return img.size
+            except Exception:
+                logger.warning("百家号: 读取封面尺寸失败,使用默认尺寸", exc_info=True)
+        return 900, 383
+
+    @staticmethod
+    def _cover_crop(width: int, height: int) -> dict:
+        """百家号封面裁剪比例约为 372:248(3:2)。"""
+        target_w, target_h = 372, 248
+        if width <= 0 or height <= 0:
+            width, height = 900, 383
+        if width / height > target_w / target_h:
+            crop_h = max(height, target_h)
+            crop_w = round(crop_h * target_w / target_h)
+            x, y = 0, 0
+        else:
+            crop_w = max(width, target_w)
+            crop_h = round(crop_w * target_h / target_w)
+            x = max(round(width / 2 - crop_w / 2), 0)
+            y = max(round(height / 2 - crop_h / 2), 0)
+        return {"x": x, "y": y, "width": crop_w, "height": crop_h}
+
+    @staticmethod
+    def _bjh_image_html(image_url: str, width: int, height: int) -> str:
+        """生成百家号编辑器可识别的正文图片。
+
+        只写普通 <img src> 时，草稿正文能显示图片，但手机端“添加封面”
+        可能提示“正文中无可用图片”。百家号前端会读取 data-w/data-h 和
+        data-bjh-params，并优先读取 data-ai-copilot-set-as-cover=1。
+        """
+        caption_id = f"cap-{uuid.uuid4()}"
+        params = quote(json.dumps({"is_legal": 0}, ensure_ascii=False, separators=(",", ":")))
+        return (
+            f'<p class="bjh-image-container" data-bjh-caption-id="{caption_id}" '
+            f'data-bjh-caption-text="">'
+            f'<img src="{image_url}" data-bjh-type="IMG" data-w="{width}" data-h="{height}" '
+            f'data-bjh-params="{params}" data-ai-copilot-set-as-cover="1">'
+            f'</p><p class="bjh-image-caption" data-bjh-caption-for="{caption_id}"></p>'
+        )
+
     @classmethod
-    def _to_html(cls, product: ArticleProduct, image_url: str = "") -> str:
+    def _to_html(
+        cls,
+        product: ArticleProduct,
+        image_url: str = "",
+        image_size: tuple[int, int] = (900, 383),
+    ) -> str:
         if product.content_html:
             html = cls._strip_wechat_guide(product.content_html)
             html = re.sub(r"<img\b[^>]*>", "", html, flags=re.I)
             if image_url:
-                html = f'<p><img src="{image_url}" /></p>' + html
+                html = cls._bjh_image_html(image_url, *image_size) + html
             return html
         text = product.content_md or ""
         paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
         html = "".join(f"<p>{p}</p>" for p in paragraphs)
         if image_url:
-            html = f'<p><img src="{image_url}" /></p>' + html
+            html = cls._bjh_image_html(image_url, *image_size) + html
         return html
+
+    @classmethod
+    def _cover_fields(cls, image_url: str, origin_url: str, image_size: tuple[int, int]) -> tuple[list, list, str]:
+        if not image_url:
+            return [], [], "zero"
+        width, height = image_size
+        cover_images = [{
+            "src": image_url,
+            "cropData": cls._cover_crop(width, height),
+            "machine_chooseimg": 0,
+            "isLegal": 0,
+        }]
+        cover_images_map = [{"src": image_url, "origin_src": origin_url or image_url}]
+        return cover_images, cover_images_map, "one"
 
     async def _upload_image(self, page, cover_path: str | None, token: str) -> dict:
         if not cover_path or not Path(cover_path).exists():
@@ -106,29 +173,39 @@ class BaijiahaoChannel(PlaywrightChannel):
 
         image = await self._upload_image(page, product.cover_path, jwt_token)
         image_url = image.get("https_url") or image.get("no_waterlog_bos_url") or image.get("bos_url") or ""
+        if not image_url:
+            # 封面缺失会导致草稿正文无内嵌图,手机端发布时无法设封面("正文中无可用图片")。
+            # 不否决保存(留草稿便于人工补图),但必须暴露,避免静默产出无图草稿。
+            logger.warning(
+                "百家号: 未取得封面图 url(cover_path=%s, exists=%s),"
+                "草稿正文将无图、手机端无法设封面发布",
+                product.cover_path,
+                bool(product.cover_path and Path(product.cover_path).exists()),
+            )
 
+        image_size = self._image_size(product.cover_path)
         title = re.sub(r"[*_`#]+", "", product.title or "").strip()[:40]
-        content = self._to_html(product, image_url=image_url)
-        cover_images = [{
-            "src": image_url,
-            "url": image_url,
-            "originSrc": image.get("org_url") or image_url,
-            "width": 900,
-            "height": 383,
-        }] if image_url else []
+        content = self._to_html(product, image_url=image_url, image_size=image_size)
+        cover_images, cover_images_map, cover_layout = self._cover_fields(
+            image_url,
+            image.get("org_url") or image_url,
+            image_size,
+        )
 
         # 永远保存草稿，真实发布必须人工审核后手动操作。
         draft_flag = "1"
 
         result = await page.evaluate(
-            """async ([title, content, token, isDraft, coverImages]) => {
+            """async ([title, content, token, isDraft, coverImages, coverImagesMap, coverLayout]) => {
                 const fd = new URLSearchParams();
                 fd.append('title', title);
                 fd.append('content', content);
                 fd.append('type', 'news');
                 fd.append('is_draft', isDraft);
                 fd.append('cover_images', JSON.stringify(coverImages));
-                fd.append('cover_layout', coverImages.length ? '1' : '0');
+                fd.append('_cover_images_map', JSON.stringify(coverImagesMap));
+                fd.append('cover_images_map', JSON.stringify(coverImagesMap));
+                fd.append('cover_layout', coverLayout);
 
                 const resp = await fetch('/pcui/article/save', {
                     method: 'POST',
@@ -140,7 +217,7 @@ class BaijiahaoChannel(PlaywrightChannel):
                 });
                 return await resp.json();
             }""",
-            [title, content, jwt_token, draft_flag, cover_images],
+            [title, content, jwt_token, draft_flag, cover_images, cover_images_map, cover_layout],
         )
 
         errno = result.get("errno")

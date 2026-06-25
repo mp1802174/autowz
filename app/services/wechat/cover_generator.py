@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import json
 import logging
@@ -36,6 +38,61 @@ def generate_cover(title: str, output_path: Optional[str] = None) -> str:
     return _generate_text_cover(title, output_path)
 
 
+async def _title_to_en_scene(clean_title: str) -> str:
+    """把中文标题转成英文关键词短语,用于构造纯英文 prompt。
+
+    sensenova 等模型会把 prompt 里"像标题的完整句子"(无论中英文)渲染成图上文字,
+    但英文名词性关键词短语则不会。所以这里:
+      1. 用免费 Google 翻译(无需 key、快、不耗 LLM 额度)把标题译成英文;
+      2. 用代码把完整句子降解为关键词:去标点、去停用词/虚词,只留实义词。
+    失败则降级返回空串(prompt 不含主题仍能出图),绝不阻断封面生成。
+    """
+    from urllib.parse import quote
+    url = (
+        "https://translate.googleapis.com/translate_a/single"
+        f"?client=gtx&sl=zh-CN&tl=en&dt=t&q={quote(clean_title)}"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+            data = r.json()
+        en = "".join(seg[0] for seg in data[0] if seg[0]).strip()
+    except Exception as exc:
+        logger.warning("Google 翻译标题失败,降级为通用画面: %s", str(exc)[:80])
+        return ""
+
+    return _to_keywords(en)
+
+
+# 句子降解为关键词时要剔除的停用词/虚词(避免被 sensenova 当标题渲染)。
+_STOPWORDS = {
+    "a", "an", "the", "to", "of", "in", "on", "at", "for", "with", "by", "from",
+    "and", "or", "but", "not", "no", "don", "dont", "don't", "do", "does", "did",
+    "is", "are", "was", "were", "be", "been", "being", "this", "that", "these",
+    "those", "it", "its", "as", "if", "when", "while", "than", "then", "so",
+    "you", "your", "we", "our", "they", "their", "he", "she", "his", "her",
+    "rely", "save", "someone", "anymore", "again", "more", "should", "must",
+    "can", "will", "just", "only", "also", "too", "via", "into", "onto", "up",
+    "down", "out", "off", "over", "about", "after", "before",
+}
+
+
+def _to_keywords(en_sentence: str) -> str:
+    """把英文句子降解为去停用词的关键词短语(逗号分隔),并剔除残留中文。"""
+    en_sentence = re.sub(r"[一-鿿]", "", en_sentence)
+    words = re.findall(r"[A-Za-z][A-Za-z\-]*", en_sentence)
+    kept = [w for w in words if w.lower() not in _STOPWORDS]
+    # 保序去重
+    seen, out = set(), []
+    for w in kept:
+        lw = w.lower()
+        if lw not in seen:
+            seen.add(lw)
+            out.append(w)
+    return ", ".join(out[:12])
+
+
 async def _generate_ai_cover(
     title: str,
     output_path: Optional[str] = None,
@@ -46,15 +103,17 @@ async def _generate_ai_cover(
 
     clean_title = title.replace("今天怎么看｜", "").replace("今天怎么看|", "")
 
-    # 构建 prompt：根据标题生成相关场景图片。
-    # 第一原则:封面图绝对不能含文字。注意——部分生图模型(如 sensenova)会把
-    # prompt 里显著的文本/大写指令/引号标题直接渲染成图上文字,所以:
-    #   1. 不要把中文标题原文塞进 prompt(否则会被画上去),只用它描述画面;
-    #   2. "无文字"约束用一句平实英文放末尾,不用大写、不用引号包裹。
+    # 第一原则:封面图绝对不能含文字。关键——sensenova 等模型会把 prompt 里出现的
+    # 中文/显著文本直接渲染成图上文字,所以 prompt 必须零中文:先把中文标题转成英文
+    # 画面描述,再构造纯英文 prompt。
+    en_scene = await _title_to_en_scene(clean_title)
+    subject = (
+        f"Subject: {en_scene}. " if en_scene
+        else "Subject: a clean conceptual scene related to a current news topic. "
+    )
     prompt = (
         f"A professional, visually striking news cover image. "
-        f"Subject: concrete visual objects and scenes related to this topic — {clean_title} "
-        f"(depict the objects/scene only, do not write this topic as text). "
+        f"{subject}"
         f"Style: photorealistic or modern illustration, clean composition, cinematic lighting, "
         f"vibrant but professional colors suitable for news media, 16:9 aspect ratio, high quality. "
         f"The image is purely visual with no text, no letters, no Chinese characters, "
