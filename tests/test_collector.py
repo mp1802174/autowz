@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 from app.services.collector.base import CollectedTopic
 from app.services.collector.manager import CollectorManager
+from app.services.collector.search import NewsItem, _dedup_by_similarity
 
 
 def _make_topic(title: str, source: str, score: float) -> CollectedTopic:
@@ -47,3 +48,34 @@ class TestCollectorManager:
 
         assert len(result) == 2
         assert result[0].hot_score >= result[1].hot_score
+
+
+class TestNewsPoolSimilarityDedup:
+    def test_near_synonym_titles_clustered(self):
+        items = [
+            NewsItem(title="多地上调养老金 退休人员待遇提升", description="短"),
+            NewsItem(title="多地养老金上调 退休人员待遇迎来提升", description="更长的描述更全面"),
+            NewsItem(title="一季度GDP数据公布 经济温和回升", description=""),
+        ]
+        result = _dedup_by_similarity(items)
+        titles = [it.title for it in result]
+        # 两条养老金近义标题合并为一，GDP 独立保留
+        assert len(result) == 2
+        assert "一季度GDP数据公布 经济温和回升" in titles
+
+    def test_keeps_longer_description(self):
+        items = [
+            NewsItem(title="某地发布楼市新政 优化购房政策", description="短"),
+            NewsItem(title="某地楼市新政发布 购房政策优化", description="信息更全的长描述内容"),
+        ]
+        result = _dedup_by_similarity(items)
+        assert len(result) == 1
+        assert result[0].description == "信息更全的长描述内容"
+
+    def test_distinct_topics_untouched(self):
+        items = [
+            NewsItem(title="央行宣布降准释放流动性"),
+            NewsItem(title="多地暴雨红色预警发布"),
+        ]
+        result = _dedup_by_similarity(items)
+        assert len(result) == 2

@@ -25,6 +25,9 @@ class Settings(BaseSettings):
 
     tianapi_key: str = Field(default="", alias="TIANAPI_KEY")
 
+    # 选题时传给 LLM 排序的候选新闻上限（去重聚类后池子已变小）
+    selector_llm_max_items: int = Field(default=50, alias="SELECTOR_LLM_MAX_ITEMS")
+
     image_providers_file: str = Field(
         default="image_providers.json",
         alias="IMAGE_PROVIDERS_FILE",

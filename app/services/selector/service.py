@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from app.services.collector.search import NewsItem
+from app.core.config import get_settings
+from app.services.collector.search import NewsItem, _dedup_by_similarity
 from app.services.guard.blocklist import is_topic_risky
 from app.services.llm.client import LLMClient, get_llm_client
 from typing import Dict, List, Optional, Tuple
@@ -118,13 +119,12 @@ PRIORITY_KEYWORDS = {
 DOWNRANK_KEYWORDS = [
     "明星", "恋情", "离婚", "绯闻", "八卦", "塌房", "网红", "热舞", "穿搭", "颜值", "综艺", "演唱会", "粉丝",
     "搞笑", "猎奇", "奇葩", "震惊", "曝光", "吃瓜",
+    "娱乐", "体育", "足球", "篮球", "nba", "比赛", "球员", "游戏", "电竞", "主播",
 ]
 
-# OPTIMIZE: 黑名单硬过滤
+# 黑名单硬过滤：只拦纯明星八卦，其余品类靠 downrank 降权
 BLACKLIST_KEYWORDS = [
-    "娱乐", "明星", "八卦", "绯闻", "恋情", "离婚", "网红", "综艺",
-    "体育", "足球", "篮球", "nba", "比赛", "球员",
-    "游戏", "电竞", "主播",
+    "明星", "八卦", "绯闻", "恋情", "离婚", "综艺",
 ]
 
 
@@ -136,11 +136,13 @@ class TopicSelectorService:
         priority_keywords: Optional[Dict[str, List[str]]] = None,
         downrank_keywords: Optional[List[str]] = None,
         blacklist_keywords: Optional[List[str]] = None,
+        llm_max_items: Optional[int] = None,
     ) -> None:
         self.llm = llm_client or get_llm_client()
         self.priority_keywords = priority_keywords or PRIORITY_KEYWORDS
         self.downrank_keywords = downrank_keywords if downrank_keywords is not None else DOWNRANK_KEYWORDS
         self.blacklist_keywords = blacklist_keywords if blacklist_keywords is not None else BLACKLIST_KEYWORDS
+        self.llm_max_items = llm_max_items if llm_max_items is not None else get_settings().selector_llm_max_items
 
     async def select(
         self, news_items: List[NewsItem], *, short_count: int = 2, long_count: int = 0,
@@ -173,7 +175,7 @@ class TopicSelectorService:
         topic_list = "\n".join(
             f"{i}. [{n.source}] {n.title}"
             + (f" — {n.description[:80]}" if n.description else "")
-            for i, n in enumerate(news_items[:30])
+            for i, n in enumerate(news_items[:self.llm_max_items])
         )
 
         try:
@@ -242,13 +244,16 @@ class TopicSelectorService:
         self, news_items: List[NewsItem], short_count: int, long_count: int,
     ) -> Dict[str, List[NewsItem]]:
         """LLM 不可用时的兜底选题：按关键词优先级排序后取前 N 条。"""
-        # OPTIMIZE: 黑名单过滤
+        # 黑名单过滤
         filtered = []
         for item in news_items:
             text = f"{item.title} {item.description or ''}".lower()
             if any(k in text for k in self.blacklist_keywords):
                 continue
             filtered.append(item)
+
+        # 主题聚类去重：LLM 不可用时也避免选出同一事件的近义重复
+        filtered = _dedup_by_similarity(filtered)
 
         ranked = sorted(
             filtered,

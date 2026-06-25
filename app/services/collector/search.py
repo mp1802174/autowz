@@ -8,6 +8,7 @@
 import logging
 import re
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 
 import feedparser
 import httpx
@@ -80,6 +81,37 @@ def _normalize_title(title: str) -> str:
     return re.sub(r'[^\u4e00-\u9fff\w]', '', title).lower()
 
 
+# 主题聚类相似度阈值：归一化标题相似度 ≥ 此值视为同一主题（近义重复）。
+# 复用项目既有手法（CollectorManager._deduplicate 同样用 difflib.SequenceMatcher）。
+SIMILARITY_THRESHOLD = 0.7
+
+
+def _dedup_by_similarity(
+    items: List["NewsItem"], threshold: float = SIMILARITY_THRESHOLD
+) -> List["NewsItem"]:
+    """主题级去重：对近义标题（相似度 ≥ threshold）只保留信息更全的一条。
+
+    在 exact 去重之后调用。池子规模仅几十条，O(n²) 完全可接受。
+    """
+    kept: List["NewsItem"] = []
+    kept_keys: List[str] = []
+    for item in items:
+        key = _normalize_title(item.title)
+        dup_idx = -1
+        for i, prev in enumerate(kept_keys):
+            if SequenceMatcher(None, key, prev).ratio() >= threshold:
+                dup_idx = i
+                break
+        if dup_idx < 0:
+            kept.append(item)
+            kept_keys.append(key)
+        elif len(item.description or "") > len(kept[dup_idx].description or ""):
+            # 同主题，保留 description 更长（信息更全）的一条
+            kept[dup_idx] = item
+            kept_keys[dup_idx] = key
+    return kept
+
+
 class NewsCollector:
     """新闻采集器：天行API + RSS + 搜狗新闻搜索。"""
 
@@ -127,7 +159,12 @@ class NewsCollector:
                 deduped.append(item)
 
         logger.info("新闻池采集完成: 原始 %d → 去重 %d", len(all_news), len(deduped))
-        return deduped
+
+        # 主题聚类去重：剔除近义重复话题，提升进池信息增量
+        clustered = _dedup_by_similarity(deduped)
+        if len(clustered) != len(deduped):
+            logger.info("主题聚类去重: %d → %d", len(deduped), len(clustered))
+        return clustered
 
     async def _fetch_tianapi(self, endpoint: str, num: int) -> List[NewsItem]:
         """从天行API获取新闻列表。"""
