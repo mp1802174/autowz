@@ -26,7 +26,7 @@ from app.modules.finance.config import (
     SELECTOR_CONFIG,
     WRITER_CONFIG,
 )
-from app.modules.finance.writer import DataDrivenWriter
+from app.modules.finance.writer import DataDrivenWriter, _quality_char_bounds
 from app.services.collector.search import NewsCollector, NewsItem
 from app.services.guard.blocklist import is_topic_risky
 from app.services.guard.service import GuardService
@@ -156,11 +156,15 @@ class FinanceModule(BaseContentModule):
 
     def _check_draft_quality(self, draft: dict) -> QualityResult:
         """规则质量闸：返回 QualityResult，并用真实分数覆盖 style_score。"""
+        quality_min, quality_max = _quality_char_bounds(
+            getattr(self.writer, "min_chars", 300),
+            getattr(self.writer, "max_chars", 500),
+        )
         result = check_quality(
             draft.get("title", ""),
             draft.get("content_markdown", ""),
-            min_chars=getattr(self.writer, "min_chars", 600),
-            max_chars=getattr(self.writer, "max_chars", 800),
+            min_chars=quality_min,
+            max_chars=quality_max,
         )
         draft["style_score"] = result.score
         return result

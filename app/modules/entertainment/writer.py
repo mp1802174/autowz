@@ -19,6 +19,11 @@ from app.services.quality import check_quality
 
 logger = logging.getLogger("autowz.entertainment.writer")
 
+
+def _quality_char_bounds(min_chars: int, max_chars: int) -> tuple[int, int]:
+    """质量闸字数范围放宽：目标字数由 prompt/finalize 控制。"""
+    return max(1, min_chars - 100), max_chars + 200
+
 # 娱乐模块专属规则(项目级约束由 BASE_SYSTEM_PROMPT 提供,不在此重复)
 ENTERTAINMENT_PROMPT = """
 ## 模块定位 — 娱乐观察
@@ -50,8 +55,8 @@ class EntertainmentWriter:
         author: str,
         llm_client: Optional[LLMClient] = None,
         *,
-        min_chars: int = 600,
-        max_chars: int = 800,
+        min_chars: int = 300,
+        max_chars: int = 500,
         temperature: float = 0.7,
         frequency_penalty: float = 0.0,
         presence_penalty: float = 0.0,
@@ -121,11 +126,12 @@ class EntertainmentWriter:
             )
 
         logger.info("娱乐文章生成完成: %s (%d字, 最大%d字)", title, cn_chars, self.max_chars)
+        quality_min, quality_max = _quality_char_bounds(self.min_chars, self.max_chars)
         quality = check_quality(
             title,
             content_md,
-            min_chars=self.min_chars,
-            max_chars=self.max_chars,
+            min_chars=quality_min,
+            max_chars=quality_max,
         )
         if not quality.passed:
             logger.warning(
@@ -178,4 +184,3 @@ class EntertainmentWriter:
         if len(digest) > 120:
             digest = digest[:118] + "…"
         return title, digest, content_md
-

@@ -79,8 +79,8 @@ def check_quality(
     title: str,
     content_md: str,
     *,
-    min_chars: int = 600,
-    max_chars: int = 800,
+    min_chars: int = 200,
+    max_chars: int = 700,
     max_sentence_chars: int = MAX_SENTENCE_CHARS,
     max_paragraph_chars: int = MAX_PARAGRAPH_CHARS,
 ) -> QualityResult:

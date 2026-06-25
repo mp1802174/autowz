@@ -1,9 +1,9 @@
 import re
 from typing import List
 
-# OPTIMIZE: 字数控制收紧到600-800，质量闸负责判废。
-MIN_ARTICLE_CHARS = 600
-MAX_ARTICLE_CHARS = 800
+# 文章目标长度：主要通过生成提示词控制在 300-500 字。
+MIN_ARTICLE_CHARS = 300
+MAX_ARTICLE_CHARS = 500
 
 
 def count_cn_chars(text: str) -> int:

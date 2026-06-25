@@ -62,8 +62,8 @@ class GuardService:
             rule_quality = check_quality(
                 article.get("title", ""),
                 article.get("content_markdown", ""),
-                min_chars=article.get("min_chars", 600),
-                max_chars=article.get("max_chars", 800),
+                min_chars=article.get("min_chars", 200),
+                max_chars=article.get("max_chars", 700),
             )
 
         # Layer 2: LLM 深度审核 + 语义质量评审

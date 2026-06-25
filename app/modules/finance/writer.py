@@ -27,6 +27,11 @@ from app.services.quality import check_quality
 
 logger = logging.getLogger("autowz.finance.writer")
 
+
+def _quality_char_bounds(min_chars: int, max_chars: int) -> tuple[int, int]:
+    """质量闸字数范围放宽：目标字数由 prompt/finalize 控制。"""
+    return max(1, min_chars - 100), max_chars + 200
+
 # 财经模块专属规则(项目级约束由 BASE_SYSTEM_PROMPT 提供,不在此重复)
 FINANCE_PROMPT = """
 ## 模块定位 — 数据驱动财经解读
@@ -34,29 +39,29 @@ FINANCE_PROMPT = """
 
 ## 模块写作结构(严格遵守)
 
-### 1. 事实开头(60-100 字,1-2 段)
+### 1. 事实开头(40-70 字,1 段)
 - 第一段必须有事实依据和新闻事实，让读者知道文章依据哪件事/哪组数据；但开头方式不拘一格，不要每篇都同一句式。
 - 来源交代可以多样化(如"数据显示""公司公告""交易所披露信息""从已披露信息看")，也可以隐含在叙述中，不要每段前面加固定前缀。
 - 第二句快速点出"这和读者的关系"(存款/理财/购车成本/投资机会/就业形势)
 - 示例:"近期多家银行下调存款利率，对普通家庭来说，这不只是银行的一次调整，而是现金、理财和房贷都要重新算账的信号。"
 
-### 2. 数据呈现(200-250 字,2-3 段)
+### 2. 核心数据(70-110 字,1-2 段)
 - 核心数据 + 同比/环比/历史对比
 - 用简洁的列表或小表格呈现关键数字
 - 每个数据必带来源("中汽协数据""国家统计局公布")
 - 禁止:大段引用、专家原话堆砌、流水账式罗列
 
-### 3. 解读分析(200-250 字,2-3 段)
+### 3. 解读分析(90-140 字,1-2 段)
 - 数据背后的驱动因素(政策/成本/技术/消费习惯)
 - 横向对比(与其他行业/国家/历史时期)
 - 拆解主要矛盾(供给 vs 需求,短期 vs 长期)
 
-### 4. 影响推演(100-150 字,1-2 段)
+### 4. 影响推演(60-100 字,1 段)
 - 对产业链(上下游)的影响
 - 对消费者(钱包/选择/体验)的影响
 - 对投资(相关板块/风险)的影响
 
-### 5. 明确判断(50-80 字,1 段)
+### 5. 明确判断(40-80 字,1 段)
 - 给出清晰结论，不模棱两可
 - 可以是"继续看多""谨慎观望""拐点已现"
 - 结尾留一个思考点或反问
@@ -118,11 +123,11 @@ class DataDrivenWriter:
         user_prompt = (
             f"话题:{topic}{stance_hint}{context_block}\n\n"
             f"请写一篇数据驱动的财经解读文章,结构严格遵守:\n"
-            f"1. 事实开头(60-100字):用自然方式交代新闻事实(不要每篇套同一句式),再点出与读者钱包的关系\n"
-            f"2. 数据呈现(200-250字):核心数字+对比,必带来源\n"
-            f"3. 解读分析(200-250字):驱动因素+横向对比+拆解矛盾\n"
-            f"4. 影响推演(100-150字):产业链/消费者/投资影响\n"
-            f"5. 明确判断(50-80字):清晰结论,不骑墙\n\n"
+            f"1. 事实开头(40-70字):用自然方式交代新闻事实(不要每篇套同一句式),迅速点出与读者钱包的关系\n"
+            f"2. 核心数据(70-110字):只写最关键数字+对比,必带来源\n"
+            f"3. 解读分析(90-140字):抓一个主要驱动因素和一个核心矛盾,不要铺开写\n"
+            f"4. 影响推演(60-100字):点到产业链/消费者/投资中最相关的一项\n"
+            f"5. 明确判断(40-80字):清晰结论,不骑墙\n\n"
             f"硬性要求:\n"
             f"- 全文{self.min_chars}-{self.max_chars}字\n"
             f"- 第一段必须有事实依据和新闻事实,不能直接空降观点;但开头方式不拘一格\n"
@@ -167,11 +172,12 @@ class DataDrivenWriter:
             title, cn_chars, self.max_chars,
         )
 
+        quality_min, quality_max = _quality_char_bounds(self.min_chars, self.max_chars)
         quality = check_quality(
             title,
             content_md,
-            min_chars=self.min_chars,
-            max_chars=self.max_chars,
+            min_chars=quality_min,
+            max_chars=quality_max,
         )
         if not quality.passed:
             logger.warning(
@@ -238,4 +244,3 @@ class DataDrivenWriter:
             digest = digest[:118] + "…"
 
         return title, digest, content_md
-
